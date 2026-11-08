@@ -1,3 +1,3 @@
-"""Lixu - lumini CS2 (Game State Integration) pentru tastatura ZENKABEAT."""
+"""Lixu - lumini CS2 (Game State Integration) pentru tastatură, placă de bază, Logitech, WLED și Govee."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

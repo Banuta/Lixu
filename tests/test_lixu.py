@@ -6,7 +6,7 @@ import urllib.request
 from pathlib import Path
 
 from lixu import cs2cfg, layout, protocol
-from lixu.device import DryRunKeyboard
+from lixu.devices.zenkabeat import DryRunKeyboard
 from lixu.effects import Renderer, health_color
 from lixu.gsi import GsiServer, StateStore, parse_state
 

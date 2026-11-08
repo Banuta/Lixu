@@ -139,12 +139,15 @@ class StateStore:
         self._lock = threading.Lock()
         self._state = GameState()
         self.updates = 0
+        self.changed = threading.Event()  # trezește motorul când vin date noi
 
     def update(self, payload: Dict[str, Any], now: Optional[float] = None) -> GameState:
         with self._lock:
             self._state = parse_state(payload, self._state, now)
             self.updates += 1
-            return self._state
+            state = self._state
+        self.changed.set()
+        return state
 
     def get(self) -> GameState:
         with self._lock:

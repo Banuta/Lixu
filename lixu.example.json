@@ -1,0 +1,15 @@
+{
+  "gsi": {"host": "127.0.0.1", "port": 3000, "token": null},
+  "fps": 30,
+  "idle_fps": 10,
+  "brightness": 1.0,
+  "devices": [
+    {"type": "zenkabeat", "effect": "keyboard"},
+    {"type": "wled", "host": "192.168.1.60", "effect": "health", "name": "Banda birou"},
+    {"type": "govee", "host": "192.168.1.70", "effect": "ambient", "name": "Govee spate monitor"},
+    {"type": "logitech", "target": "mouse", "effect": "ambient", "name": "G502"},
+    {"type": "logitech", "target": "headset", "effect": "health", "name": "G733"},
+    {"type": "openrgb", "device_type": "motherboard", "effect": "ambient", "brightness": 0.7},
+    {"type": "openrgb", "match": "Corsair", "effect": "ammo", "enabled": false}
+  ]
+}

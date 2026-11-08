@@ -90,6 +90,10 @@ _hid.HidD_FreePreparsedData.argtypes = [ctypes.c_void_p]
 _hid.HidD_FreePreparsedData.restype = wintypes.BOOLEAN
 _hid.HidP_GetCaps.argtypes = [ctypes.c_void_p, ctypes.POINTER(HIDP_CAPS)]
 _hid.HidP_GetCaps.restype = ctypes.c_long
+_hid.HidD_GetProductString.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.ULONG]
+_hid.HidD_GetProductString.restype = wintypes.BOOLEAN
+_hid.HidD_GetManufacturerString.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.ULONG]
+_hid.HidD_GetManufacturerString.restype = wintypes.BOOLEAN
 _hid.HidD_SetFeature.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.ULONG]
 _hid.HidD_SetFeature.restype = wintypes.BOOLEAN
 _hid.HidD_GetFeature.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.ULONG]
@@ -132,6 +136,8 @@ class HidInterface:
     input_len: int
     output_len: int
     feature_len: int
+    product: str = ""
+    manufacturer: str = ""
 
     @property
     def interface_number(self) -> Optional[int]:
@@ -146,6 +152,13 @@ def _open(path: str, access: int) -> Optional[int]:
     if handle in (None, 0, INVALID_HANDLE_VALUE):
         return None
     return handle
+
+
+def _hid_string(func, handle) -> str:
+    buf = ctypes.create_unicode_buffer(256)
+    if func(handle, buf, ctypes.sizeof(buf)):
+        return buf.value.strip()
+    return ""
 
 
 def _device_paths() -> List[str]:
@@ -221,6 +234,8 @@ def enumerate_interfaces(vendor_id: Optional[int] = None, product_id: Optional[i
                     input_len=caps.InputReportByteLength,
                     output_len=caps.OutputReportByteLength,
                     feature_len=caps.FeatureReportByteLength,
+                    product=_hid_string(_hid.HidD_GetProductString, handle),
+                    manufacturer=_hid_string(_hid.HidD_GetManufacturerString, handle),
                 )
             )
         finally:
