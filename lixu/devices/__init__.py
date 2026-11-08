@@ -20,10 +20,11 @@ FACTORIES: Dict[str, str] = {
     "govee": "lixu.devices.govee",
     "logitech": "lixu.devices.logitech",
     "openrgb": "lixu.devices.openrgb",
+    "tuya": "lixu.devices.tuya",
 }
 
 # câte LED-uri simulăm în --dry-run când config-ul nu spune
-DRY_RUN_LEDS = {"zenkabeat": 126, "wled": 30, "govee": 1, "logitech": 1, "openrgb": 8}
+DRY_RUN_LEDS = {"zenkabeat": 126, "wled": 30, "govee": 1, "logitech": 1, "openrgb": 8, "tuya": 1}
 
 
 class DryRunDevice(Device):

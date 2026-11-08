@@ -4,11 +4,18 @@
 CS2 --HTTP POST JSON--> gsi.py --GameState--> engine.py --culori--> devices/*.py --> hardware
                                                   |
                                               effects.py
+
+interfața (ui/index.html) <--/api/*--> app.py --> engine / config / peripherals
+mouse & căști <--HID++ 2.0--> peripherals/logitech.py (baterie, DPI, polling rate)
 ```
 
 | Fișier | Ce face | Cât de des îl modifici |
 |---|---|---|
 | `lixu/effects.py` | starea jocului -> culori. **Aici te joci.** | des |
+| `lixu/ui/index.html` | interfața: un singur fișier HTML + CSS + JS, fără biblioteci | des |
+| `lixu/app.py` | leagă totul și expune API-ul pentru interfață (`/api/state`, `/api/config` ...) | când adaugi un buton nou |
+| `lixu/peripherals/hidpp.py` | protocolul Logitech HID++ 2.0 (baterie, DPI, polling, mod onboard) | rar |
+| `lixu/peripherals/logitech.py` | găsește mouse-ul/căștile și le citește o dată pe minut | rar |
 | `lixu/layout.py` | tastele ZENKABEAT și grupurile de taste (rânduri, coloane) | uneori |
 | `lixu/gsi.py` | serverul HTTP pentru CS2 și `GameState` (viață, armură, bombă ...) | dacă vrei date noi din joc |
 | `lixu/engine.py` | bucla principală: când redesenează, cui trimite, reconectare | rar |
@@ -90,6 +97,25 @@ Altfel motorul îl redesenează doar când vin date noi.
 2. În `lixu/devices/__init__.py` adaugi `"altceva": "lixu.devices.altceva"` în `FACTORIES`
    (și un număr de LED-uri în `DRY_RUN_LEDS`).
 3. Dacă are `discover()`, îl adaugi în `_sources` din `lixu/discovery/scan.py`.
+
+## Modifici interfața
+
+`lixu/ui/index.html` e HTML simplu. Variabilele de culoare sunt sus, în `:root`; textele sunt
+direct în HTML sau în obiectul `LABELS` din JavaScript. Pornește `lixu run --dry-run` și
+reîncarcă pagina (F5) după fiecare modificare.
+
+Un buton nou care face ceva în aplicație:
+1. în `app.py`, în `routes` din `make_ui_handler`, adaugi `"/api/ceva": lambda: app.ceva(data)`
+2. în `index.html`: `await api("/api/ceva", {parametri})`
+
+Toate cererile POST trebuie să aibă antetul `X-Lixu: 1` (funcția `api()` îl pune singură). Așa
+o pagină web străină nu poate schimba setările.
+
+## Altă funcție pentru mouse
+
+`HidppDevice` (în `peripherals/hidpp.py`) are `call(feature_id, funcție, parametri)`. ID-urile
+feature-urilor HID++ 2.0 sunt publice (le găsești în Solaar, `lib/logitech_receiver/hidpp20_constants.py`).
+De exemplu, 0x2201 e DPI-ul, cu funcțiile 1 = listă, 2 = citește, 3 = setează.
 
 ## De ce e ușor pe CPU
 

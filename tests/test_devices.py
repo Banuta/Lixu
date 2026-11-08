@@ -238,7 +238,8 @@ class ConfigTest(unittest.TestCase):
                 {"type": "wled", "host": "10.0.0.5"}, {"type": "govee", "host": "x", "enabled": False}]}))
             cfg = configmod.load(str(path))
             self.assertEqual((cfg.port, cfg.fps), (3456, 20.0))
-            self.assertEqual([d["type"] for d in cfg.devices], ["wled"])
+            self.assertEqual([d["type"] for d in cfg.active_devices], ["wled"])
+            self.assertEqual(len(cfg.devices), 2)
             configmod.save(cfg, path)
             self.assertEqual(configmod.load(str(path)).port, 3456)
 

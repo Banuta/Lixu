@@ -3,6 +3,9 @@
   "fps": 30,
   "idle_fps": 10,
   "brightness": 1.0,
+  "ui_port": 3001,
+  "colors": {"t": "#ff6e00", "ct": "#006eff"},
+  "peripherals": {"enabled": true, "poll_seconds": 60, "mouse": {"dpi": null, "polling_rate": null, "host_mode": false}},
   "devices": [
     {"type": "zenkabeat", "effect": "keyboard"},
     {"type": "wled", "host": "192.168.1.60", "effect": "health", "name": "Banda birou"},
@@ -10,6 +13,7 @@
     {"type": "logitech", "target": "mouse", "effect": "ambient", "name": "G502"},
     {"type": "logitech", "target": "headset", "effect": "health", "name": "G733"},
     {"type": "openrgb", "device_type": "motherboard", "effect": "ambient", "brightness": 0.7},
+    {"type": "tuya", "id": "bf0123456789abcdef", "effect": "ambient", "name": "Bec birou", "enabled": false},
     {"type": "openrgb", "match": "Corsair", "effect": "ammo", "enabled": false}
   ]
 }

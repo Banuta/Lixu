@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lixu</title>
+<!--
+  Interfața lixu. Un singur fișier, fără biblioteci externe: modifică liber.
+  Vorbește cu aplicația prin /api/* (vezi lixu/app.py).
+-->
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --line: #2a2f3a;
+    --text: #e6e8ee; --muted: #8b93a3; --t: #ff8a1f; --ct: #3d8bff; --ok: #31d07c;
+    --warn: #ffb020; --bad: #ff4d5e; --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px;
+           border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: .5px; }
+  header h1 span { color: var(--t); }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav button { background: none; border: 0; color: var(--muted); padding: 8px 12px; border-radius: 8px;
+               cursor: pointer; font: inherit; }
+  nav button.active, nav button:hover { background: var(--panel2); color: var(--text); }
+  .status { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); display: inline-block; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+  section { display: none; }
+  section.active { display: block; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .sub { color: var(--muted); font-weight: normal; font-size: 12px; margin-left: auto; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+  .row label { min-width: 120px; color: var(--muted); }
+  .bar { height: 10px; background: var(--panel2); border-radius: 6px; overflow: hidden; flex: 1; min-width: 120px; }
+  .bar > div { height: 100%; background: var(--ok); transition: width .3s; }
+  .big { font-size: 26px; font-weight: 600; }
+  .muted { color: var(--muted); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; background: var(--panel2);
+          font-size: 12px; color: var(--muted); }
+  .pill.T { background: rgba(255,138,31,.15); color: var(--t); }
+  .pill.CT { background: rgba(61,139,255,.15); color: var(--ct); }
+  .pill.bad { background: rgba(255,77,94,.15); color: var(--bad); }
+  .pill.ok { background: rgba(49,208,124,.15); color: var(--ok); }
+  button.btn, .btn { background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+               border-radius: 8px; padding: 7px 12px; cursor: pointer; font: inherit; }
+  .btn:hover { border-color: var(--muted); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.primary { background: var(--ct); border-color: var(--ct); color: #fff; }
+  .btn.danger { color: var(--bad); }
+  .btn.small { padding: 3px 8px; font-size: 12px; }
+  input, select, textarea { background: var(--bg); color: var(--text); border: 1px solid var(--line);
+               border-radius: 7px; padding: 6px 8px; font: inherit; }
+  input[type=range] { padding: 0; accent-color: var(--ct); }
+  input[type=color] { padding: 0; width: 44px; height: 30px; border: 0; background: none; cursor: pointer; }
+  textarea { width: 100%; min-height: 90px; font-family: Consolas, monospace; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: normal; font-size: 12px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 2px; max-width: 360px; }
+  .swatches i { width: 12px; height: 12px; border-radius: 3px; display: block; }
+  .kb { display: grid; grid-template-columns: repeat(21, 1fr); gap: 3px; max-width: 760px; }
+  .kb i { height: 26px; border-radius: 4px; font-style: normal; font-size: 9px; display: flex; align-items: center;
+          justify-content: center; color: rgba(0,0,0,.55); overflow: hidden; background: #111; }
+  .kb i.empty { background: none; }
+  .toast { position: fixed; bottom: 18px; right: 18px; background: var(--panel2); border: 1px solid var(--line);
+           padding: 10px 14px; border-radius: 8px; opacity: 0; transition: opacity .25s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .note { background: rgba(255,176,32,.08); border: 1px solid rgba(255,176,32,.3); color: var(--warn);
+          padding: 8px 12px; border-radius: 8px; margin: 8px 0; font-size: 13px; }
+  .found { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin: 6px 0; background: var(--panel2); }
+  .found ul { margin: 4px 0 0 18px; padding: 0; color: var(--warn); font-size: 12px; }
+  .savebar { position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(transparent, var(--bg) 40%);
+             display: flex; gap: 8px; justify-content: flex-end; }
+  details summary { cursor: pointer; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>LI<span>XU</span></h1>
+  <nav id="nav">
+    <button data-tab="live" class="active">Live</button>
+    <button data-tab="devices">Dispozitive</button>
+    <button data-tab="peripherals">Mouse &amp; căști</button>
+    <button data-tab="colors">Culori</button>
+    <button data-tab="settings">Setări</button>
+  </nav>
+  <div class="status"><span class="dot" id="gsiDot"></span><span id="gsiText">CS2: aștept date</span></div>
+</header>
+
+<main>
+  <!-- ============================== LIVE ============================== -->
+  <section id="live" class="active">
+    <div class="grid">
+      <div class="card">
+        <h2>Joc <span class="sub" id="mapName"></span></h2>
+        <div class="row"><span class="big" id="hpText">-</span><span class="muted">HP</span>
+          <span id="teamPill" class="pill">meniu</span><span id="bombPill"></span></div>
+        <div class="row"><label>Viață</label><div class="bar"><div id="hpBar" style="width:0"></div></div></div>
+        <div class="row"><label>Armură</label><div class="bar"><div id="arBar" style="width:0;background:var(--ct)"></div></div></div>
+        <div class="row"><label>Gloanțe</label><span id="ammoText" class="muted">-</span></div>
+        <div class="row"><label>Kill-uri rundă</label><span id="killsText" class="muted">-</span></div>
+        <div class="row"><label>Bani</label><span id="moneyText" class="muted">-</span></div>
+      </div>
+      <div class="card">
+        <h2>Simulează <span class="sub">vezi efectele fără CS2</span></h2>
+        <div class="row" id="simButtons"></div>
+        <p class="muted" style="font-size:12px">Datele reale de la CS2 înlocuiesc simularea imediat ce vin.</p>
+      </div>
+    </div>
+    <h3 class="muted" style="margin:22px 0 10px;font-weight:normal">Ce afișează acum fiecare dispozitiv</h3>
+    <div class="grid" id="previews"></div>
+  </section>
+
+  <!-- ============================== DISPOZITIVE ============================== -->
+  <section id="devices">
+    <div class="card">
+      <h2>Dispozitive <span class="sub">ordinea, efectul și luminozitatea fiecăruia</span></h2>
+      <table>
+        <thead><tr><th>Activ</th><th>Nume</th><th>Tip</th><th>Efect</th><th>Luminozitate</th><th>Stare</th><th></th></tr></thead>
+        <tbody id="devTable"></tbody>
+      </table>
+      <div class="row" style="margin-top:14px">
+        <select id="addType"></select>
+        <button class="btn" id="addBtn">+ Adaugă manual</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Scanează <span class="sub">tastatură, placă de bază, Logitech, WLED, Govee, Tuya, OpenRGB</span></h2>
+      <div class="row">
+        <input id="subnet" placeholder="subrețea opțională, ex. 192.168.1.0/24" style="min-width:280px">
+        <button class="btn primary" id="scanBtn">Scanează</button>
+        <span class="muted" id="scanStatus"></span>
+      </div>
+      <div id="scanResults"></div>
+    </div>
+    <div class="savebar"><button class="btn primary" data-save>Salvează</button></div>
+  </section>
+
+  <!-- ============================== MOUSE & CĂȘTI ============================== -->
+  <section id="peripherals">
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn" id="perRefresh">Reîmprospătează</button>
+      <span class="muted" id="perNote"></span>
+    </div>
+    <div class="note">Dacă G HUB e pornit, își poate aplica propriul profil (și per joc) peste DPI-ul și polling
+      rate-ul setate aici. Setează aceleași valori și în G HUB, sau folosește „Mod host”.</div>
+    <div class="grid" id="perCards"></div>
+  </section>
+
+  <!-- ============================== CULORI ============================== -->
+  <section id="colors">
+    <div class="card">
+      <h2>Paleta <span class="sub">se aplică imediat după „Salvează”</span></h2>
+      <div id="palette"></div>
+      <div class="row"><button class="btn" id="paletteReset">Culorile implicite</button></div>
+    </div>
+    <div class="savebar"><button class="btn primary" data-save>Salvează</button></div>
+  </section>
+
+  <!-- ============================== SETĂRI ============================== -->
+  <section id="settings">
+    <div class="grid">
+      <div class="card">
+        <h2>Performanță</h2>
+        <div class="row"><label>FPS animații</label><input type="number" id="setFps" min="5" max="60" style="width:80px">
+          <span class="muted">mai puțin = și mai ușor pentru CPU</span></div>
+        <div class="row"><label>FPS în meniu</label><input type="number" id="setIdleFps" min="1" max="30" style="width:80px"></div>
+        <div class="row"><label>Luminozitate globală</label><input type="range" id="setBright" min="0" max="1" step="0.05">
+          <span id="setBrightVal" class="muted"></span></div>
+      </div>
+      <div class="card">
+        <h2>CS2 Game State Integration</h2>
+        <div class="row"><label>Port GSI</label><input type="number" id="setPort" style="width:100px"></div>
+        <div class="row"><label>Token</label><input id="setToken" placeholder="opțional"></div>
+        <div class="row"><label>Port interfață</label><input type="number" id="setUiPort" style="width:100px"></div>
+        <div class="row"><input id="cs2Dir" placeholder="folder CS2 ...\game\csgo\cfg (gol = automat)" style="flex:1">
+          <button class="btn" id="installCfg">Instalează cfg în CS2</button></div>
+        <div id="installResult" class="muted" style="font-size:12px"></div>
+      </div>
+      <div class="card">
+        <h2>Mouse &amp; căști Logitech</h2>
+        <div class="row"><label>Activ</label><input type="checkbox" id="setPerEnabled"></div>
+        <div class="row"><label>Citește bateria la</label><input type="number" id="setPerPoll" min="10" style="width:80px"> s</div>
+        <p class="muted" style="font-size:12px">Modificările de aici cer repornirea aplicației.</p>
+      </div>
+      <div class="card">
+        <h2>Config</h2>
+        <p class="muted" id="cfgPath"></p>
+        <details><summary>Editează JSON-ul direct</summary>
+          <textarea id="rawJson" style="min-height:260px"></textarea>
+          <div class="row"><button class="btn" id="rawApply">Aplică JSON</button></div>
+        </details>
+        <div class="row" style="margin-top:14px"><button class="btn danger" id="quitBtn">Oprește lixu</button>
+          <span class="muted">luminile revin la efectele lor</span></div>
+      </div>
+    </div>
+    <div class="savebar"><button class="btn primary" data-save>Salvează</button></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ------------------------------------------------------------------ utilitare
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let meta = null, cfg = null, state = null, dirty = false;
+
+async function api(path, body) {
+  const opt = body === undefined ? {} :
+    {method: "POST", headers: {"Content-Type": "application/json", "X-Lixu": "1"}, body: JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function toast(msg, ms = 2500) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), ms);
+}
+function markDirty() { dirty = true; document.querySelectorAll("[data-save]").forEach(b => b.textContent = "Salvează *"); }
+
+const LABELS = {
+  palette: {t: "Teroriști", ct: "Counter-teroriști", idle: "Meniu (respirație)", armor: "Armură",
+            helmet: "Armură + cască", ammo: "Gloanțe", kill: "Kill", headshot: "Headshot",
+            bomb: "Bombă", fire: "Foc", dead: "Mort"},
+  effects: {keyboard: "Tastatură (complet)", ambient: "Ambient (echipă + evenimente)", team: "Doar echipa",
+            health: "Viață", armor: "Armură", ammo: "Gloanțe"},
+  sims: {menu: "Meniu", ct: "CT full HP", t_low: "T, HP mic, fără gloanțe", bomb: "Bombă plantată",
+         flash: "Flash", fire: "Foc", dead: "Mort", win: "Rundă câștigată"},
+};
+
+// ------------------------------------------------------------------ tab-uri
+document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll("main section").forEach(s => s.classList.toggle("active", s.id === b.dataset.tab));
+  if (b.dataset.tab === "settings") $("#rawJson").value = JSON.stringify(cfg, null, 2);
+});
+
+// ------------------------------------------------------------------ LIVE
+function renderGame(g) {
+  $("#gsiDot").classList.toggle("on", !!g.connected);
+  $("#gsiText").textContent = g.connected ? `CS2 conectat (${g.age}s)` : "CS2: aștept date";
+  const inGame = g.in_game;
+  $("#hpText").textContent = inGame ? g.health : "-";
+  $("#hpBar").style.width = (inGame ? g.health : 0) + "%";
+  $("#hpBar").style.background = g.health > 50 ? "var(--ok)" : g.health > 25 ? "var(--warn)" : "var(--bad)";
+  $("#arBar").style.width = (inGame ? g.armor : 0) + "%";
+  const tp = $("#teamPill"); tp.className = "pill " + (g.team || ""); tp.textContent = g.team || "meniu";
+  $("#bombPill").innerHTML = g.bomb ? `<span class="pill bad">bombă: ${esc(g.bomb)}</span>` : "";
+  $("#ammoText").textContent = g.ammo != null && g.ammo_max > 0 ? `${g.ammo} / ${g.ammo_max} (${g.weapon})` : "-";
+  $("#killsText").textContent = inGame ? `${g.round_kills || 0} (${g.round_killhs || 0} HS)` : "-";
+  $("#moneyText").textContent = inGame ? "$" + (g.money || 0) : "-";
+  $("#mapName").textContent = g.map ? `${g.map}  CT ${g.score_ct ?? "-"} : ${g.score_t ?? "-"} T` : "";
+}
+
+function keyboardPreview(colors) {
+  // index LED = coloană * 6 + rând; rândul 0 (F1-F12) nu există pe 68%
+  const byLed = Object.fromEntries(meta.keys.map(k => [k.led, k.name]));
+  let html = "";
+  for (let row = 1; row < 6; row++) for (let col = 0; col < 21; col++) {
+    const led = col * 6 + row, name = byLed[led];
+    html += name ? `<i style="background:${colors[led] || "#111"}">${esc(name.slice(0, 3))}</i>` : `<i class="empty"></i>`;
+  }
+  return `<div class="kb">${html}</div>`;
+}
+
+function renderPreviews(devices) {
+  $("#previews").innerHTML = devices.map(d => {
+    const status = d.connected ? `<span class="pill ok">conectat</span>` :
+      `<span class="pill bad" title="${esc(d.error)}">deconectat</span>`;
+    let body;
+    if (d.type === "zenkabeat" && d.colors.length === 126) body = keyboardPreview(d.colors);
+    else if (d.colors.length) {
+      const step = Math.max(1, Math.ceil(d.colors.length / 120));
+      body = `<div class="swatches">${d.colors.filter((_, i) => i % step === 0)
+        .map(c => `<i style="background:${c};${d.colors.length === 1 ? "width:60px;height:24px" : ""}"></i>`).join("")}</div>`;
+    } else body = `<span class="muted">${esc(d.error || "nimic trimis încă")}</span>`;
+    return `<div class="card"${d.type === "zenkabeat" ? ' style="grid-column:1/-1"' : ""}>
+      <h2>${esc(d.name)} <span class="pill">${esc(LABELS.effects[d.effect] || d.effect)}</span>
+      <span class="sub">${status}</span></h2>${body}</div>`;
+  }).join("") || `<p class="muted">Niciun dispozitiv activ. Adaugă din tab-ul Dispozitive.</p>`;
+}
+
+// ------------------------------------------------------------------ DISPOZITIVE
+function activeIndex(i) {  // indexul în motor = poziția printre dispozitivele active
+  let n = -1;
+  for (let j = 0; j <= i; j++) if (cfg.devices[j].enabled !== false) n++;
+  return cfg.devices[i].enabled === false ? -1 : n;
+}
+
+function renderDevices() {
+  const snap = state ? state.devices : [];
+  $("#devTable").innerHTML = cfg.devices.map((d, i) => {
+    const ai = activeIndex(i), s = ai >= 0 ? snap[ai] : null;
+    const st = d.enabled === false ? `<span class="pill">oprit</span>` :
+      s && s.connected ? `<span class="pill ok">${s.leds} LED</span>` :
+      `<span class="pill bad" title="${esc(s && s.error)}">eroare</span>`;
+    const effects = meta.effects.filter(e => e !== "keyboard" || d.type === "zenkabeat");
+    return `<tr data-i="${i}">
+      <td><input type="checkbox" data-f="enabled" ${d.enabled === false ? "" : "checked"}></td>
+      <td><input data-f="name" value="${esc(d.name || "")}" placeholder="${esc(d.type)}" style="width:150px"></td>
+      <td><span class="pill">${esc(d.type)}</span></td>
+      <td><select data-f="effect">${effects.map(e =>
+        `<option value="${e}" ${(d.effect || (d.type === "zenkabeat" ? "keyboard" : "ambient")) === e ? "selected" : ""}>${esc(LABELS.effects[e] || e)}</option>`).join("")}</select></td>
+      <td><input type="range" data-f="brightness" min="0" max="1" step="0.05" value="${d.brightness ?? 1}" style="width:110px"></td>
+      <td>${st}${s && s.error ? `<div class="muted" style="font-size:11px;max-width:260px">${esc(s.error)}</div>` : ""}</td>
+      <td style="white-space:nowrap">
+        <button class="btn small" data-act="identify" ${ai < 0 ? "disabled" : ""} title="aprinde roșu/verde/albastru/alb">Identifică</button>
+        <button class="btn small" data-act="up">↑</button>
+        <button class="btn small" data-act="edit">JSON</button>
+        <button class="btn small danger" data-act="del">✕</button>
+      </td></tr>
+      <tr class="json" data-i="${i}" hidden><td colspan="7"><textarea data-f="json">${esc(JSON.stringify(d, null, 2))}</textarea></td></tr>`;
+  }).join("");
+}
+
+$("#devTable").addEventListener("input", e => {
+  const tr = e.target.closest("tr"), i = +tr.dataset.i, f = e.target.dataset.f;
+  if (!f) return;
+  const d = cfg.devices[i];
+  if (f === "json") { try { cfg.devices[i] = JSON.parse(e.target.value); e.target.style.borderColor = ""; }
+                      catch { e.target.style.borderColor = "var(--bad)"; return; } }
+  else if (f === "enabled") d.enabled = e.target.checked;
+  else if (f === "brightness") d.brightness = +e.target.value;
+  else if (f === "name") d.name = e.target.value || undefined;
+  else d[f] = e.target.value;
+  markDirty();
+});
+$("#devTable").addEventListener("click", async e => {
+  const act = e.target.dataset.act; if (!act) return;
+  const i = +e.target.closest("tr").dataset.i;
+  if (act === "identify") { await api("/api/identify", {index: activeIndex(i)}); toast("Uită-te care se aprinde"); }
+  if (act === "del") { cfg.devices.splice(i, 1); markDirty(); renderDevices(); }
+  if (act === "up" && i > 0) { [cfg.devices[i - 1], cfg.devices[i]] = [cfg.devices[i], cfg.devices[i - 1]]; markDirty(); renderDevices(); }
+  if (act === "edit") { const r = document.querySelector(`tr.json[data-i="${i}"]`); r.hidden = !r.hidden; }
+});
+$("#addBtn").onclick = () => {
+  cfg.devices.push(JSON.parse(JSON.stringify(meta.templates[$("#addType").value])));
+  markDirty(); renderDevices();
+  const rows = document.querySelectorAll("tr.json"); rows[rows.length - 1].hidden = false;
+  toast("Completează adresa în JSON, apoi Salvează");
+};
+
+$("#scanBtn").onclick = async () => {
+  $("#scanBtn").disabled = true; $("#scanStatus").textContent = "caut... (câteva secunde)";
+  try {
+    const res = await api("/api/scan", {subnet: $("#subnet").value.trim()});
+    $("#scanResults").innerHTML = res.groups.map((g, gi) => `<h3 style="font-size:13px;margin:14px 0 4px">${esc(g.name)}</h3>` +
+      (g.error ? `<div class="muted">eroare: ${esc(g.error)}</div>` : g.found.length ? g.found.map((f, fi) => `
+        <div class="found"><b>${esc(f.name)}</b> <span class="muted">${esc(f.address)}</span>
+          <span class="muted">${esc(f.details)}</span>
+          ${f.controllable && f.config ? `<button class="btn small" style="float:right" data-add="${gi}:${fi}">+ Adaugă</button>` : ""}
+          ${f.notes.length ? `<ul>${f.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</div>`).join("")
+        : `<div class="muted">nimic găsit</div>`)).join("");
+    $("#scanResults").onclick = ev => {
+      const k = ev.target.dataset.add; if (!k) return;
+      const [gi, fi] = k.split(":").map(Number), c = res.groups[gi].found[fi].config;
+      cfg.devices.push(Object.fromEntries(Object.entries(c).filter(([, v]) => v != null)));
+      ev.target.disabled = true; ev.target.textContent = "adăugat"; markDirty(); renderDevices();
+    };
+    $("#scanStatus").textContent = "gata";
+  } catch (err) { $("#scanStatus").textContent = "eroare: " + err.message; }
+  $("#scanBtn").disabled = false;
+};
+
+// ------------------------------------------------------------------ MOUSE & CĂȘTI
+function batteryHtml(p) {
+  if (p.battery == null) return `<span class="muted">${p.online ? "baterie necunoscută" : "offline"}</span>`;
+  const col = p.battery > 40 ? "var(--ok)" : p.battery > 15 ? "var(--warn)" : "var(--bad)";
+  return `<div class="bar"><div style="width:${p.battery}%;background:${col}"></div></div>
+    <b>${p.battery}%</b>${p.charging ? ` <span class="pill ok">se încarcă</span>` : ""}
+    ${p.voltage ? `<span class="muted">${p.voltage} mV</span>` : ""}`;
+}
+function dpiControl(p) {
+  if (p.dpi_range) {
+    const [lo, hi, step] = p.dpi_range;
+    return `<input type="number" data-k="dpi" min="${lo}" max="${hi}" step="${step}" value="${p.dpi || ""}" style="width:100px">
+      <span class="muted">${lo}-${hi}, pas ${step}</span>`;
+  }
+  return `<select data-k="dpi">${p.dpi_choices.map(v => `<option ${v === p.dpi ? "selected" : ""}>${v}</option>`).join("")}</select>`;
+}
+let perEditing = false;
+function renderPeripherals(per) {
+  $("#perNote").textContent = per.note || "";
+  if (perEditing) return;  // nu rescrie formularul cât timp utilizatorul îl editează
+  $("#perCards").innerHTML = per.devices.map(p => `
+    <div class="card" data-id="${esc(p.id)}">
+      <h2>${p.kind === "headset" ? "🎧" : p.kind === "mouse" ? "🖱️" : "🔌"} ${esc(p.name)}
+        <span class="sub">${p.online ? `<span class="pill ok">online</span>` : `<span class="pill bad">offline</span>`}</span></h2>
+      <div class="row"><label>Baterie</label>${batteryHtml(p)}</div>
+      ${p.kind === "mouse" ? `
+        <div class="row"><label>DPI</label>${dpiControl(p)} <span class="muted">acum: ${p.dpi ?? "?"}</span></div>
+        <div class="row"><label>Polling rate</label><select data-k="rate">${p.rate_choices.map(v =>
+          `<option value="${v}" ${v === p.rate ? "selected" : ""}>${v} Hz</option>`).join("")}</select>
+          <span class="muted">acum: ${p.rate ?? "?"} Hz</span></div>
+        <div class="row"><label>Memorie onboard</label><span class="pill">${esc(p.onboard_mode || "?")}</span>
+          <label style="min-width:0"><input type="checkbox" data-k="host_mode" data-orig="${p.onboard_mode === "host"}" ${p.onboard_mode === "host" ? "checked" : ""}> Mod host (PC-ul controlează)</label></div>
+        <div class="row"><label style="min-width:0"><input type="checkbox" data-k="remember"> aplică la fiecare pornire</label>
+          <button class="btn primary" data-apply>Aplică</button></div>` : ""}
+      ${p.error ? `<div class="muted" style="font-size:12px">${esc(p.error)}</div>` : ""}
+    </div>`).join("") || `<p class="muted">Niciun mouse sau căști Logitech găsite încă.</p>`;
+}
+$("#perCards").addEventListener("focusin", () => perEditing = true);
+$("#perCards").addEventListener("focusout", () => setTimeout(() => perEditing = false, 3000));
+$("#perCards").addEventListener("click", async e => {
+  if (!e.target.matches("[data-apply]")) return;
+  const card = e.target.closest(".card"), v = k => card.querySelector(`[data-k="${k}"]`);
+  try {
+    const host = v("host_mode"), hostChanged = String(host.checked) !== host.dataset.orig;
+    await api("/api/mouse", {id: card.dataset.id, dpi: +v("dpi").value || null, rate: +v("rate").value || null,
+                             host_mode: hostChanged ? host.checked : undefined, remember: v("remember").checked});
+    toast("Aplicat"); perEditing = false;
+  } catch (err) { toast("Eroare: " + err.message, 5000); }
+});
+$("#perRefresh").onclick = () => api("/api/peripherals/refresh", {}).then(() => toast("Citesc din nou..."));
+
+// ------------------------------------------------------------------ CULORI
+function renderPalette() {
+  $("#palette").innerHTML = Object.keys(meta.default_palette).map(k => `
+    <div class="row"><label>${esc(LABELS.palette[k] || k)}</label>
+      <input type="color" data-c="${k}" value="${cfg.colors[k] || meta.default_palette[k]}">
+      <code class="muted">${cfg.colors[k] || meta.default_palette[k]}</code></div>`).join("");
+}
+$("#palette").addEventListener("input", e => {
+  const k = e.target.dataset.c; if (!k) return;
+  cfg.colors[k] = e.target.value; e.target.nextElementSibling.textContent = e.target.value; markDirty();
+});
+$("#paletteReset").onclick = () => { cfg.colors = {...meta.default_palette}; renderPalette(); markDirty(); };
+
+// ------------------------------------------------------------------ SETĂRI
+function renderSettings() {
+  $("#setFps").value = cfg.fps; $("#setIdleFps").value = cfg.idle_fps;
+  $("#setBright").value = cfg.brightness; $("#setBrightVal").textContent = Math.round(cfg.brightness * 100) + "%";
+  $("#setPort").value = cfg.gsi.port; $("#setToken").value = cfg.gsi.token || ""; $("#setUiPort").value = cfg.ui_port;
+  $("#setPerEnabled").checked = cfg.peripherals.enabled !== false;
+  $("#setPerPoll").value = cfg.peripherals.poll_seconds || 60;
+  $("#cfgPath").textContent = cfg.path ? "Fișier: " + cfg.path : "Fișierul lixu.json se creează la prima salvare.";
+}
+const bind = (id, fn) => $(id).addEventListener("input", e => { fn(e.target); markDirty(); });
+bind("#setFps", t => cfg.fps = +t.value);
+bind("#setIdleFps", t => cfg.idle_fps = +t.value);
+bind("#setBright", t => { cfg.brightness = +t.value; $("#setBrightVal").textContent = Math.round(t.value * 100) + "%"; });
+bind("#setPort", t => cfg.gsi.port = +t.value);
+bind("#setToken", t => cfg.gsi.token = t.value || null);
+bind("#setUiPort", t => cfg.ui_port = +t.value);
+bind("#setPerEnabled", t => cfg.peripherals.enabled = t.checked);
+bind("#setPerPoll", t => cfg.peripherals.poll_seconds = +t.value);
+$("#rawApply").onclick = () => {
+  try { cfg = Object.assign(JSON.parse($("#rawJson").value), {path: cfg.path}); renderAll(); markDirty(); toast("Aplicat; apasă Salvează"); }
+  catch (err) { toast("JSON invalid: " + err.message, 5000); }
+};
+$("#installCfg").onclick = async () => {
+  const r = await api("/api/install-cfg", {cs2_dir: $("#cs2Dir").value.trim() || null});
+  $("#installResult").innerHTML = r.ok ? "Scris: " + r.written.map(esc).join("<br>") + "<br>Repornește CS2."
+    : `${esc(r.error)}<pre>${esc(r.content)}</pre>`;
+};
+
+$("#quitBtn").onclick = async () => {
+  if (!confirm("Oprești lixu? Luminile nu vor mai urmări CS2.")) return;
+  await api("/api/quit", {}); document.body.innerHTML = "<main><h2>Lixu s-a oprit. Poți închide fereastra.</h2></main>";
+};
+
+document.querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
+  try {
+    const r = await api("/api/config", cfg);
+    dirty = false; document.querySelectorAll("[data-save]").forEach(x => x.textContent = "Salvează");
+    toast(r.restart_needed ? "Salvat. Portul/tokenul se aplică după repornire." : "Salvat și aplicat");
+    cfg = await api("/api/config");
+  } catch (err) { toast("Eroare: " + err.message, 6000); }
+});
+window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+// ------------------------------------------------------------------ pornire + actualizare
+function renderAll() { renderDevices(); renderPalette(); renderSettings(); }
+
+async function poll() {
+  if (document.visibilityState === "visible") {
+    try {
+      state = await api("/api/state");
+      renderGame(state.game);
+      renderPreviews(state.devices);
+      renderPeripherals(state.peripherals);
+      if ($("#devices").classList.contains("active") && !dirty && !document.activeElement.closest("#devTable")) renderDevices();
+    } catch { $("#gsiText").textContent = "lixu nu răspunde"; $("#gsiDot").classList.remove("on"); }
+  }
+  setTimeout(poll, $("#live").classList.contains("active") ? 250 : 1500);
+}
+
+(async () => {
+  meta = await api("/api/meta");
+  cfg = await api("/api/config");
+  $("#addType").innerHTML = meta.types.map(t => `<option>${t}</option>`).join("");
+  $("#simButtons").innerHTML = meta.simulations.map(s =>
+    `<button class="btn" data-sim="${s}">${esc(LABELS.sims[s] || s)}</button>`).join("");
+  $("#simButtons").onclick = e => e.target.dataset.sim && api("/api/simulate", {preset: e.target.dataset.sim});
+  renderAll();
+  poll();
+})();
+</script>
+</body>
+</html>

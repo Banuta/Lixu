@@ -25,7 +25,14 @@ class Config:
     idle_fps: float = 10.0
     brightness: float = 1.0
     devices: List[Dict[str, Any]] = field(default_factory=lambda: [dict(d) for d in DEFAULT_DEVICES])
+    colors: Dict[str, str] = field(default_factory=dict)
+    peripherals: Dict[str, Any] = field(default_factory=lambda: {"enabled": True, "poll_seconds": 60})
+    ui_port: int = 3001
     path: Optional[Path] = None
+
+    @property
+    def active_devices(self) -> List[Dict[str, Any]]:
+        return [d for d in self.devices if d.get("enabled", True)]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -33,6 +40,9 @@ class Config:
             "fps": self.fps,
             "idle_fps": self.idle_fps,
             "brightness": self.brightness,
+            "colors": self.colors,
+            "peripherals": self.peripherals,
+            "ui_port": self.ui_port,
             "devices": self.devices,
         }
 
@@ -56,7 +66,7 @@ def find_config(explicit: Optional[str] = None) -> Optional[Path]:
 
 def from_dict(data: Dict[str, Any], path: Optional[Path] = None) -> Config:
     gsi = data.get("gsi", {})
-    devices = [d for d in data.get("devices", DEFAULT_DEVICES) if d.get("enabled", True)]
+    devices = [dict(d) for d in data.get("devices", DEFAULT_DEVICES)]
     for d in devices:
         if "type" not in d:
             raise ValueError(f"dispozitiv fără \"type\" în config: {d}")
@@ -68,6 +78,9 @@ def from_dict(data: Dict[str, Any], path: Optional[Path] = None) -> Config:
         idle_fps=float(data.get("idle_fps", 10.0)),
         brightness=float(data.get("brightness", 1.0)),
         devices=devices,
+        colors=dict(data.get("colors") or {}),
+        peripherals=dict(data.get("peripherals") or {"enabled": True, "poll_seconds": 60}),
+        ui_port=int(data.get("ui_port", 3001)),
         path=path,
     )
 

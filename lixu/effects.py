@@ -39,6 +39,36 @@ FIRE_COLOR: RGB = (255, 80, 0)
 DEAD_COLOR: RGB = (25, 25, 25)
 OFF: RGB = (0, 0, 0)
 
+# Numele din config / interfață -> variabila de mai sus
+PALETTE_NAMES = {
+    "t": "T_COLOR", "ct": "CT_COLOR", "idle": "IDLE_COLOR", "armor": "ARMOR_COLOR",
+    "helmet": "HELMET_COLOR", "ammo": "AMMO_COLOR", "kill": "KILL_COLOR", "headshot": "HS_COLOR",
+    "bomb": "BOMB_COLOR", "fire": "FIRE_COLOR", "dead": "DEAD_COLOR",
+}
+
+
+def rgb_to_hex(c: RGB) -> str:
+    return "#%02x%02x%02x" % tuple(int(v) for v in c)
+
+
+def hex_to_rgb(text: str) -> RGB:
+    t = text.strip().lstrip("#")
+    if len(t) != 6:
+        raise ValueError(f"culoare invalidă: {text!r} (format #rrggbb)")
+    return (int(t[0:2], 16), int(t[2:4], 16), int(t[4:6], 16))
+
+
+def palette() -> Dict[str, str]:
+    return {k: rgb_to_hex(globals()[v]) for k, v in PALETTE_NAMES.items()}
+
+
+def apply_palette(colors: Dict[str, str]) -> None:
+    """Schimbă culorile (din config sau din interfață) fără restart."""
+    for key, value in (colors or {}).items():
+        if key in PALETTE_NAMES:
+            globals()[PALETTE_NAMES[key]] = hex_to_rgb(value)
+
+
 BOMB_TIMER = 40.0
 BOMB_END_FLASH = 3.0
 ROUND_END_FLASH = 4.0

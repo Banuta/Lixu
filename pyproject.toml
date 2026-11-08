@@ -4,14 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lixu"
-version = "0.2.0"
-description = "Lumini CS2 (Game State Integration) pentru tastatură, placă de bază, Logitech, WLED și Govee"
+version = "0.3.0"
+description = "Lumini CS2 (Game State Integration) pentru tastatură, placă de bază, Logitech, WLED, Govee și Tuya; DPI, polling rate și baterie pentru mouse/căști Logitech"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
 
+[project.optional-dependencies]
+tuya = ["tinytuya>=1.13"]
+exe = ["pyinstaller>=6"]
+
 [project.scripts]
 lixu = "lixu.__main__:main"
 
+[project.gui-scripts]
+lixu-app = "lixu.__main__:main"
+
 [tool.setuptools]
-packages = ["lixu", "lixu.devices", "lixu.discovery"]
+packages = ["lixu", "lixu.devices", "lixu.discovery", "lixu.peripherals"]
+
+[tool.setuptools.package-data]
+lixu = ["ui/*.html"]

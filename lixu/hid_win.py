@@ -275,3 +275,93 @@ class HidHandle:
 
     def __exit__(self, *exc) -> None:
         self.close()
+
+
+# ---------------------------------------------------------------------------
+# Citire/scriere de rapoarte input/output (folosit de Logitech HID++).
+# Fișierul e deschis cu FILE_FLAG_OVERLAPPED, ca citirea să aibă timeout.
+
+FILE_FLAG_OVERLAPPED = 0x40000000
+ERROR_IO_PENDING = 997
+WAIT_OBJECT_0 = 0
+WAIT_TIMEOUT = 0x102
+
+
+class OVERLAPPED(ctypes.Structure):
+    _fields_ = [
+        ("Internal", ctypes.c_void_p),
+        ("InternalHigh", ctypes.c_void_p),
+        ("Offset", wintypes.DWORD),
+        ("OffsetHigh", wintypes.DWORD),
+        ("hEvent", wintypes.HANDLE),
+    ]
+
+
+_kernel32.CreateEventW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
+_kernel32.CreateEventW.restype = wintypes.HANDLE
+_kernel32.ResetEvent.argtypes = [wintypes.HANDLE]
+_kernel32.ResetEvent.restype = wintypes.BOOL
+_kernel32.ReadFile.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
+                               ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(OVERLAPPED)]
+_kernel32.ReadFile.restype = wintypes.BOOL
+_kernel32.WriteFile.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
+                                ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(OVERLAPPED)]
+_kernel32.WriteFile.restype = wintypes.BOOL
+_kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+_kernel32.WaitForSingleObject.restype = wintypes.DWORD
+_kernel32.GetOverlappedResult.argtypes = [wintypes.HANDLE, ctypes.POINTER(OVERLAPPED),
+                                          ctypes.POINTER(wintypes.DWORD), wintypes.BOOL]
+_kernel32.GetOverlappedResult.restype = wintypes.BOOL
+_kernel32.CancelIo.argtypes = [wintypes.HANDLE]
+_kernel32.CancelIo.restype = wintypes.BOOL
+
+
+class HidStream:
+    """Rapoarte input/output pe o colecție HID (scriere + citire cu timeout)."""
+
+    def __init__(self, interface: HidInterface):
+        self.interface = interface
+        handle = _kernel32.CreateFileW(
+            interface.path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+            None, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, None,
+        )
+        if handle in (None, 0, INVALID_HANDLE_VALUE):
+            raise OSError(f"nu pot deschide {interface.path}: {ctypes.WinError(ctypes.get_last_error())}")
+        self._handle = handle
+        self._read_event = _kernel32.CreateEventW(None, True, False, None)
+        self._write_event = _kernel32.CreateEventW(None, True, False, None)
+
+    def _io(self, func, buf, length: int, event, timeout_ms: int) -> Optional[int]:
+        ov = OVERLAPPED()
+        ov.hEvent = event
+        _kernel32.ResetEvent(event)
+        done = wintypes.DWORD(0)
+        if not func(self._handle, buf, length, None, ctypes.byref(ov)):
+            err = ctypes.get_last_error()
+            if err != ERROR_IO_PENDING:
+                raise OSError(f"I/O HID eșuat: {ctypes.WinError(err)}")
+            if _kernel32.WaitForSingleObject(event, timeout_ms) == WAIT_TIMEOUT:
+                _kernel32.CancelIo(self._handle)
+                _kernel32.GetOverlappedResult(self._handle, ctypes.byref(ov), ctypes.byref(done), True)
+                return None
+        if not _kernel32.GetOverlappedResult(self._handle, ctypes.byref(ov), ctypes.byref(done), False):
+            raise OSError(f"I/O HID eșuat: {ctypes.WinError(ctypes.get_last_error())}")
+        return done.value
+
+    def write(self, data: bytes) -> None:
+        length = max(len(data), self.interface.output_len)
+        buf = ctypes.create_string_buffer(bytes(data).ljust(length, b"\x00"), length)
+        if self._io(_kernel32.WriteFile, buf, length, self._write_event, 1000) is None:
+            raise TimeoutError("scriere HID expirată")
+
+    def read(self, timeout: float) -> Optional[bytes]:
+        length = max(1, self.interface.input_len)
+        buf = ctypes.create_string_buffer(length)
+        n = self._io(_kernel32.ReadFile, buf, length, self._read_event, max(0, int(timeout * 1000)))
+        return None if n is None else buf.raw[:n]
+
+    def close(self) -> None:
+        if self._handle:
+            for h in (self._handle, self._read_event, self._write_event):
+                _kernel32.CloseHandle(h)
+            self._handle = None

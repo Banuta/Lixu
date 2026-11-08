@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 
 def _sources(timeout: float, subnet: Optional[str], openrgb_host: str) -> Dict[str, Callable[[], List[Found]]]:
-    from ..devices import govee, logitech, openrgb, wled, zenkabeat
+    from ..devices import govee, logitech, openrgb, tuya, wled, zenkabeat
     from . import motherboard
 
     return {
@@ -22,6 +22,7 @@ def _sources(timeout: float, subnet: Optional[str], openrgb_host: str) -> Dict[s
         "OpenRGB": lambda: openrgb.discover(openrgb_host),
         "WLED (ESP32)": lambda: wled.discover(timeout, subnet),
         "Govee (LAN)": lambda: govee.discover(timeout),
+        "Tuya / Smart Life": lambda: tuya.discover(max(timeout, 4.0)),
     }
 
 

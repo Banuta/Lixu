@@ -1,7 +1,10 @@
-"""Linia de comandă: python -m lixu <comandă>
+"""Linia de comandă: python -m lixu <comandă>   (fără comandă = app)
 
+  app          aplicația cu interfață (fereastră) + lumini + mouse/căști
+  run          la fel, fără să deschidă fereastra (interfața rămâne pe http://127.0.0.1:3001)
+  battery      bateria mouse-ului și căștilor Logitech
+  mouse        setează DPI / polling rate: lixu mouse --dpi 1600 --rate 1000
   scan         caută dispozitivele: tastatură, placă de bază, Logitech, WLED, Govee, OpenRGB
-  run          pornește serverul GSI și controlează toate luminile din lixu.json
   identify     aprinde pe rând fiecare dispozitiv din config, ca să vezi care e care
   install-cfg  scrie gamestate_integration_lixu.cfg în folderul CS2
   test         test detaliat pentru tastatura ZENKABEAT
@@ -24,7 +27,7 @@ from . import __version__, config as configmod, cs2cfg, layout, protocol
 from .devices import create_device
 from .devices.zenkabeat import KeyboardNotFound, open_keyboard
 from .engine import Engine
-from .gsi import GsiServer, StateStore
+from .gsi import StateStore
 
 log = logging.getLogger("lixu")
 
@@ -49,23 +52,97 @@ def _load(args) -> configmod.Config:
 def _engine(args, cfg: configmod.Config, store: StateStore) -> Engine:
     if args.preview:
         sys.stdout.write("\x1b[2J")
-    return Engine(cfg.devices, store, fps=cfg.fps, idle_fps=cfg.idle_fps, brightness=cfg.brightness,
+    return Engine(cfg.active_devices, store, fps=cfg.fps, idle_fps=cfg.idle_fps, brightness=cfg.brightness,
                   dry_run=args.dry_run, preview=args.preview)
 
 
-def cmd_run(args) -> int:
+def _app(args, ui: bool = True):
+    from .app import App
+
     cfg = _load(args)
-    store = StateStore()
-    server = GsiServer(store, host=cfg.host, port=cfg.port, token=cfg.token)
-    server.start()
-    log.info("Server GSI pe http://%s:%d/ - aștept date de la CS2...", cfg.host, server.port)
-    engine = _engine(args, cfg, store)
+    if getattr(args, "preview", False):
+        sys.stdout.write("\x1b[2J")
+    app = App(cfg, dry_run=args.dry_run, preview=getattr(args, "preview", False))
+    app.start(ui=ui)
+    return app
+
+
+def cmd_run(args) -> int:
+    app = _app(args, ui=not args.no_ui)
     try:
-        engine.run()
+        app.wait()
     except KeyboardInterrupt:
         log.info("Oprire.")
     finally:
-        server.stop()
+        app.stop()
+    return 0
+
+
+def cmd_app(args) -> int:
+    from .app import open_window
+
+    try:
+        app = _app(args)
+    except OSError as exc:  # portul interfeței e ocupat: probabil lixu rulează deja
+        log.warning("Nu pot porni (%s). Deschid interfața existentă.", exc)
+        open_window(f"http://127.0.0.1:{configmod.load(args.config).ui_port}/")
+        return 0
+    open_window(app.ui_url)
+    log.info("Lixu rulează. Interfața: %s", app.ui_url)
+    try:
+        app.wait()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        app.stop()
+    return 0
+
+
+def _monitor():
+    from .peripherals.logitech import PeripheralMonitor
+
+    if sys.platform != "win32":
+        print("Mouse/căști Logitech: doar pe Windows.")
+        return None
+    mon = PeripheralMonitor()
+    mon._discover()
+    for ep in mon.endpoints:
+        mon._poll(ep)
+    return mon
+
+
+def cmd_battery(args) -> int:
+    mon = _monitor()
+    if mon is None:
+        return 1
+    if not mon.info:
+        print(mon.note or "Nimic găsit.")
+        return 1
+    for i in mon.info.values():
+        bat = "?" if i.battery is None else f"{i.battery}%" + (" (se încarcă)" if i.charging else "")
+        extra = f"  DPI {i.dpi}  {i.rate} Hz  memorie {i.onboard_mode}" if i.kind == "mouse" else ""
+        state = "" if i.online else "  [offline]"
+        print(f"{i.name:30} {i.kind:8} baterie {bat}{extra}{state}")
+    return 0
+
+
+def cmd_mouse(args) -> int:
+    mon = _monitor()
+    if mon is None:
+        return 1
+    key = mon._first_mouse()
+    if key is None:
+        print("Nu am găsit un mouse Logitech HID++.")
+        return 1
+    info = mon.info[key]
+    if args.host_mode is not None:
+        mon.set_host_mode(key, args.host_mode == "on")
+    if args.dpi:
+        mon.set_dpi(key, args.dpi)
+    if args.rate:
+        mon.set_rate(key, args.rate)
+    print(f"{info.name}: DPI {info.dpi} (posibil: {info.dpi_choices[:1]}..{info.dpi_choices[-1:]}), "
+          f"{info.rate} Hz (posibil: {info.rate_choices}), memorie {info.onboard_mode}")
     return 0
 
 
@@ -91,7 +168,7 @@ def cmd_scan(args) -> int:
 def cmd_identify(args) -> int:
     cfg = _load(args)
     colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)]
-    for entry in cfg.devices:
+    for entry in cfg.active_devices:
         label = entry.get("name") or entry.get("type")
         try:
             dev = create_device(entry, dry_run=args.dry_run)
@@ -222,6 +299,9 @@ def cmd_probe(args) -> int:
     return 0
 
 
+COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "battery", "mouse", "probe")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="lixu", description="Lumini CS2 pentru tastatură, placă de bază, "
                                                          "Logitech, WLED și Govee")
@@ -229,7 +309,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-v", "--verbose", action="store_true")
     sub = p.add_subparsers(dest="command", required=True)
 
-    r = sub.add_parser("run", help="server GSI + lumini")
+    a = sub.add_parser("app", help="aplicația cu interfață (implicit)")
+    _common(a)
+    a.set_defaults(func=cmd_app)
+
+    r = sub.add_parser("run", help="server GSI + lumini, fără fereastră")
+    r.add_argument("--no-ui", action="store_true", help="fără interfață web")
     r.add_argument("--port", type=int, default=None)
     r.add_argument("--token", default=None, help="tokenul din cfg-ul CS2 (opțional)")
     r.add_argument("--fps", type=float, default=None, help="cadre/s în animații (implicit 30)")
@@ -268,6 +353,16 @@ def build_parser() -> argparse.ArgumentParser:
     _common(d)
     d.set_defaults(func=cmd_demo)
 
+    b = sub.add_parser("battery", help="bateria mouse-ului și căștilor Logitech")
+    b.set_defaults(func=cmd_battery)
+
+    m = sub.add_parser("mouse", help="DPI și polling rate pentru mouse-ul Logitech")
+    m.add_argument("--dpi", type=int)
+    m.add_argument("--rate", type=int, help="polling rate în Hz (125/250/500/1000 ...)")
+    m.add_argument("--host-mode", choices=["on", "off"],
+                   help="on = PC-ul controlează DPI/polling; off = profilurile din memoria mouse-ului")
+    m.set_defaults(func=cmd_mouse)
+
     pr = sub.add_parser("probe", help="listează interfețele HID ale tastaturii")
     pr.add_argument("--all", action="store_true", help="toate dispozitivele HID, nu doar tastatura")
     pr.set_defaults(func=cmd_probe)
@@ -275,9 +370,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not any(a in COMMANDS for a in argv) and not any(a in ("-h", "--help", "--version") for a in argv):
+        argv.append("app")  # dublu-click / fără argumente = aplicația cu interfață
     args = build_parser().parse_args(argv)
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
-                        format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
+    level = logging.DEBUG if args.verbose else logging.INFO
+    fmt = "%(asctime)s %(levelname)s %(message)s"
+    if sys.stderr is None:  # Lixu.exe fără consolă: log în %APPDATA%/lixu/lixu.log
+        log_path = configmod.user_config_path().parent / "lixu.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        logging.basicConfig(level=level, format=fmt, filename=str(log_path), encoding="utf-8")
+    else:
+        logging.basicConfig(level=level, format=fmt, datefmt="%H:%M:%S")
     return args.func(args)
 
 
