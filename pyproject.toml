@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lixu"
+version = "0.1.0"
+description = "Lumini CS2 (Game State Integration) pentru tastatura ZENKABEAT, fără aplicația OEM"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+lixu = "lixu.__main__:main"
+
+[tool.setuptools]
+packages = ["lixu"]
