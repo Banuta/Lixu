@@ -61,7 +61,7 @@ def _registry_dll_paths() -> List[str]:
 def candidate_dlls(extra: Optional[str] = None) -> List[str]:
     arch = "x64" if ctypes.sizeof(ctypes.c_void_p) == 8 else "x86"
     pf = os.environ.get("ProgramFiles", r"C:\Program Files")
-    out = [p for p in (extra, os.environ.get("LIXU_LOGI_DLL")) if p]
+    out = [p for p in (extra, os.environ.get("AICOLORS_LOGI_DLL")) if p]
     out += _registry_dll_paths()
     out += [
         os.path.join(pf, "LGHUB", f"sdk_legacy_led_{arch}.dll"),
@@ -104,7 +104,7 @@ class LogiSdk:
         if hasattr(d, "LogiLedInitWithName"):
             d.LogiLedInitWithName.argtypes = [ctypes.c_char_p]
             d.LogiLedInitWithName.restype = ctypes.c_bool
-            ok = d.LogiLedInitWithName(b"Lixu CS2")
+            ok = d.LogiLedInitWithName(b"AI Colors")
         elif hasattr(d, "LogiLedInit"):
             d.LogiLedInit.restype = ctypes.c_bool
             ok = d.LogiLedInit()

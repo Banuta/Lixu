@@ -108,7 +108,7 @@ def update_leds_payload(colors: Sequence[RGB]) -> bytes:
 
 class OpenRGBClient:
     def __init__(self, host: str = "127.0.0.1", port: int = DEFAULT_PORT, timeout: float = 2.0,
-                 name: str = "Lixu"):
+                 name: str = "AI Colors"):
         try:
             self.sock = socket.create_connection((host, port), timeout=timeout)
         except OSError as exc:

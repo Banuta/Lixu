@@ -8,9 +8,9 @@ import urllib.request
 from collections import deque
 from pathlib import Path
 
-from lixu import config as configmod
-from lixu import effects
-from lixu.peripherals import hidpp
+from aicolors import config as configmod
+from aicolors import effects
+from aicolors.peripherals import hidpp
 
 
 class FakeMouse:
@@ -162,7 +162,7 @@ class TuyaTest(unittest.TestCase):
         sys.modules.pop("tinytuya", None)
 
     def test_bulb_uses_wizard_key(self):
-        from lixu.devices import tuya
+        from aicolors.devices import tuya
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "devices.json"
@@ -176,14 +176,14 @@ class TuyaTest(unittest.TestCase):
         self.assertEqual(bulb.calls[-2:], [("colour", 1, 1, 1, True), ("colour", 255, 0, 0, True)])
 
     def test_missing_key(self):
-        from lixu.devices import tuya
-        from lixu.devices.base import DeviceError
+        from aicolors.devices import tuya
+        from aicolors.devices.base import DeviceError
 
         with self.assertRaises(DeviceError):
             tuya.TuyaBulb("necunoscut", devices_json="/nu/exista.json")
 
     def test_discover(self):
-        from lixu.devices import tuya
+        from aicolors.devices import tuya
 
         found = tuya.discover(1)
         self.assertEqual(found[0].address, "192.168.1.80")
@@ -207,10 +207,10 @@ class PaletteTest(unittest.TestCase):
 class AppApiTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from lixu.app import App
+        from aicolors.app import App
 
         cls.tmp = tempfile.TemporaryDirectory()
-        path = Path(cls.tmp.name) / "lixu.json"
+        path = Path(cls.tmp.name) / "aicolors.json"
         cfg = configmod.Config(devices=[{"type": "zenkabeat"}, {"type": "wled", "leds": 10, "effect": "health"}],
                                port=0, ui_port=0, path=path)
         cls.app = App(cfg, dry_run=True)
@@ -220,7 +220,7 @@ class AppApiTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.app.stop()
-        effects.apply_palette(__import__("lixu.app", fromlist=["x"]).DEFAULT_PALETTE)
+        effects.apply_palette(__import__("aicolors.app", fromlist=["x"]).DEFAULT_PALETTE)
         cls.tmp.cleanup()
 
     def get(self, path):
@@ -229,13 +229,13 @@ class AppApiTest(unittest.TestCase):
 
     def post(self, path, body, header=True):
         req = urllib.request.Request(self.base + path, data=json.dumps(body).encode(), method="POST",
-                                     headers={"X-Lixu": "1"} if header else {})
+                                     headers={"X-AIColors": "1"} if header else {})
         with urllib.request.urlopen(req) as r:
             return json.loads(r.read())
 
     def test_index_and_meta(self):
         with urllib.request.urlopen(self.base + "/") as r:
-            self.assertIn(b"<title>Lixu</title>", r.read())
+            self.assertIn(b"<title>AI Colors</title>", r.read())
         meta = self.get("/api/meta")
         self.assertIn("tuya", meta["types"])
         self.assertEqual(len(meta["keys"]), 68)

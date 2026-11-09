@@ -6,10 +6,10 @@ Protocolul local Tuya (port 6668, versiunile 3.1-3.5) e criptat cu AES și o
     pip install tinytuya
     python -m tinytuya wizard      # o singură dată: îți ia cheile din contul Tuya IoT
 
-Wizard-ul scrie `devices.json` cu id, cheie și nume. lixu îl citește automat,
+Wizard-ul scrie `devices.json` cu id, cheie și nume. aicolors îl citește automat,
 deci în config ajunge doar `{"type": "tuya", "id": "..."}`.
 
-Becurile Tuya acceptă doar câteva comenzi pe secundă: lixu le trimite doar
+Becurile Tuya acceptă doar câteva comenzi pe secundă: aicolors le trimite doar
 culoarea „ambient” și maxim ~4 schimbări/s.
 """
 
@@ -110,6 +110,6 @@ def discover(timeout: float = 6.0) -> List[Found]:
                   config={"type": "tuya", "id": dev_id, "host": ip, "version": float(d.get("version") or 3.3),
                           "name": info.get("name"), "effect": "ambient"})
         if not info.get("key"):
-            f.notes.append("lipsește local key: rulează `python -m tinytuya wizard` în folderul lixu")
+            f.notes.append("lipsește local key: rulează `python -m tinytuya wizard` în folderul aplicației")
         found.append(f)
     return found

@@ -5,10 +5,10 @@ import unittest
 import urllib.request
 from pathlib import Path
 
-from lixu import cs2cfg, layout, protocol
-from lixu.devices.zenkabeat import DryRunKeyboard
-from lixu.effects import Renderer, health_color
-from lixu.gsi import GsiServer, StateStore, parse_state
+from aicolors import cs2cfg, layout, protocol
+from aicolors.devices.zenkabeat import DryRunKeyboard
+from aicolors.effects import Renderer, health_color
+from aicolors.gsi import GsiServer, StateStore, parse_state
 
 
 class ProtocolTest(unittest.TestCase):
@@ -170,7 +170,7 @@ class Cs2CfgTest(unittest.TestCase):
         self.assertNotIn("auth", cs2cfg.render_cfg())
         with tempfile.TemporaryDirectory() as tmp:
             path = cs2cfg.install_cfg(Path(tmp), port=3000)
-            self.assertEqual(path.name, "gamestate_integration_lixu.cfg")
+            self.assertEqual(path.name, "gamestate_integration_aicolors.cfg")
 
     def test_find_in_library_folders(self):
         with tempfile.TemporaryDirectory() as tmp:

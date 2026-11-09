@@ -1,10 +1,10 @@
-# Lixu: luminile PC-ului legate de CS2
+# AI Colors: luminile PC-ului legate de CS2
 
 Aplicație mică, cu interfață, care citește starea jocului din **Counter-Strike 2 Game State
 Integration (GSI)** și colorează în timp real tot ce ai pe birou. În plus, setează **DPI-ul și
 polling rate-ul** mouse-ului și arată **bateria** mouse-ului și a căștilor wireless.
 
-| Dispozitiv | Cum îl controlează lixu |
+| Dispozitiv | Cum îl controlează AI Colors |
 |---|---|
 | Tastatura ZENKABEAT | HID direct (protocol aflat prin reverse engineering, vezi [docs/PROTOCOL.md](docs/PROTOCOL.md)) |
 | Benzi LED cu **WLED** (ESP32 / ESP8266) | UDP realtime, găsite automat prin mDNS |
@@ -15,9 +15,9 @@ polling rate-ul** mouse-ului și arată **bateria** mouse-ului și a căștilor 
 
 ## Instalare
 
-### Varianta 1: Lixu.exe
+### Varianta 1: AIColors.exe
 
-Pe un PC cu Python, rulează o dată `build-exe.bat`. Rezultatul e `dist\Lixu.exe`, un singur
+Pe un PC cu Python, rulează o dată `build-exe.bat`. Rezultatul e `dist\AIColors.exe`, un singur
 fișier fără consolă. Copiază-l oriunde și pornește-l cu dublu-click.
 
 ### Varianta 2: din Python
@@ -28,15 +28,15 @@ Ai nevoie de Python 3.9+ ([python.org](https://www.python.org/downloads/)).
 git clone https://github.com/banuta/lixu.git
 cd lixu
 pip install .[tuya]
-lixu
+aicolors
 ```
 
-Sau dublu-click pe `start-lixu.bat`.
+Sau dublu-click pe `start-aicolors.bat`.
 
-`lixu` fără argumente pornește aplicația și deschide interfața într-o fereastră proprie
-(Edge/Chrome în mod aplicație). Poți închide fereastra oricând: lixu rulează mai departe în
+`aicolors` fără argumente pornește aplicația și deschide interfața într-o fereastră proprie
+(Edge/Chrome în mod aplicație). Poți închide fereastra oricând: AI Colors rulează mai departe în
 fundal. Pornește-l din nou ca să redeschizi fereastra. Ca să-l oprești de tot, folosește
-**Setări -> Oprește lixu**.
+**Setări -> Oprește AI Colors**.
 
 ## Interfața
 
@@ -48,21 +48,21 @@ fundal. Pornește-l din nou ca să redeschizi fereastra. Ca să-l oprești de to
 | **Culori** | culorile pentru T, CT, bombă, armură, kill, headshot etc. |
 | **Setări** | FPS, luminozitate globală, port GSI și token, **Instalează cfg în CS2**, editor JSON, oprire |
 
-Totul se salvează în `lixu.json` și se aplică imediat, fără restart.
+Totul se salvează în `aicolors.json` și se aplică imediat, fără restart.
 
 ## Pregătirea fiecărui dispozitiv
 
-* **CS2**: în Setări apasă **Instalează cfg în CS2** (sau `lixu install-cfg`), apoi repornește CS2.
+* **CS2**: în Setări apasă **Instalează cfg în CS2** (sau `aicolors install-cfg`), apoi repornește CS2.
 * **ZENKABEAT**: închide aplicația originală (și din tray) și conectează tastatura prin cablu.
-* **WLED**: nimic special, doar aceeași rețea. Când lixu se oprește, banda revine singură la
+* **WLED**: nimic special, doar aceeași rețea. Când AI Colors se oprește, banda revine singură la
   efectul ei după 2 secunde.
 * **Govee**: în Govee Home -> dispozitiv -> setări -> activează **LAN Control**.
 * **Tuya / Smart Life**: vezi [mai jos](#becuri-tuya--smart-life).
 * **Logitech, lumini**: G HUB pornit, iar în G HUB -> Settings activat „Allow games &
   applications to control my illumination”.
 * **Logitech, baterie / DPI / polling**: funcționează cu sau fără G HUB. Dacă G HUB e pornit,
-  își poate aplica propriul profil (și per joc) peste DPI-ul setat de lixu. Atunci setează
-  aceleași valori și în G HUB, sau bifează **Mod host** în lixu (mouse-ul nu mai folosește
+  își poate aplica propriul profil (și per joc) peste DPI-ul setat de AI Colors. Atunci setează
+  aceleași valori și în G HUB, sau bifează **Mod host** în AI Colors (mouse-ul nu mai folosește
   profilurile din memoria lui).
 * **Placa de bază**: instalează [OpenRGB](https://openrgb.org), pornește-l, apoi în tab-ul
   *SDK Server* apasă *Start Server* (sau `OpenRGB.exe --server --startminimized`).
@@ -76,23 +76,23 @@ singură dată** din contul tău Tuya:
 1. Fă-ți cont gratuit pe [iot.tuya.com](https://iot.tuya.com) și creează un *Cloud Project*
    (Smart Home, data center Europa).
 2. La *Devices -> Link App Account*, scanează QR-ul cu aplicația Smart Life. Becurile apar în proiect.
-3. În folderul lixu rulează:
+3. În folderul aplicației rulează:
    ```bat
    pip install tinytuya
    python -m tinytuya wizard
    ```
    Wizard-ul cere API Key/Secret din proiect și scrie `devices.json` cu cheile.
-4. În lixu: **Dispozitive -> Scanează**. Becurile apar cu „+ Adaugă”.
+4. În AI Colors: **Dispozitive -> Scanează**. Becurile apar cu „+ Adaugă”.
 
 Limitări reale:
-* Becurile Tuya acceptă doar câteva comenzi pe secundă. Lixu le trimite doar culoarea de
+* Becurile Tuya acceptă doar câteva comenzi pe secundă. AI Colors le trimite doar culoarea de
   ambient (echipă, bombă, flash), de maxim 4 ori pe secundă. Nu vor fi la fel de rapide ca WLED.
 * Dacă reîmperechezi un bec în Smart Life, cheia se schimbă și rulezi din nou wizard-ul.
 * Alternativă mai rapidă pentru unele becuri: firmware alternativ (OpenBeken / ESPHome).
 
-## Config (`lixu.json`)
+## Config (`aicolors.json`)
 
-Se editează din interfață, dar e și un fișier simplu. Exemplu: [lixu.example.json](lixu.example.json).
+Se editează din interfață, dar e și un fișier simplu. Exemplu: [aicolors.example.json](aicolors.example.json).
 
 | Efect | Ce arată |
 |---|---|
@@ -108,15 +108,15 @@ defuzată/explodată, final de rundă, flashbang, foc, mort.
 
 | Comandă | Ce face |
 |---|---|
-| `lixu` / `lixu app` | aplicația cu fereastră |
-| `lixu run` | la fel, fără fereastră (interfața rămâne la http://127.0.0.1:3001) |
-| `lixu scan --write-config lixu.json` | caută dispozitivele |
-| `lixu identify` | aprinde pe rând fiecare dispozitiv |
-| `lixu battery` | bateria mouse-ului și căștilor |
-| `lixu mouse --dpi 1600 --rate 1000` | DPI și polling rate (`--host-mode on/off`) |
-| `lixu install-cfg` | cfg-ul GSI în CS2 |
-| `lixu test` | test detaliat pentru tastatura ZENKABEAT |
-| `lixu demo --dry-run --preview` | rundă simulată, desenată în terminal |
+| `aicolors` / `aicolors app` | aplicația cu fereastră |
+| `aicolors run` | la fel, fără fereastră (interfața rămâne la http://127.0.0.1:3001) |
+| `aicolors scan --write-config aicolors.json` | caută dispozitivele |
+| `aicolors identify` | aprinde pe rând fiecare dispozitiv |
+| `aicolors battery` | bateria mouse-ului și căștilor |
+| `aicolors mouse --dpi 1600 --rate 1000` | DPI și polling rate (`--host-mode on/off`) |
+| `aicolors install-cfg` | cfg-ul GSI în CS2 |
+| `aicolors test` | test detaliat pentru tastatura ZENKABEAT |
+| `aicolors demo --dry-run --preview` | rundă simulată, desenată în terminal |
 
 ## Consum (FPS)
 

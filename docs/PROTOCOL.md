@@ -44,7 +44,7 @@ buf[4..381] = 378 bytes = 126 LED x 3 canale
 * Indexul LED = `col * 6 + rând` (21 coloane x 6 rânduri). Rândul 0 (F1-F12) nu există pe layout-ul 68%.
 * Citire inversă (`ReadEffectData`, 0x41b510): `HidD_GetFeature(hMusic, [08 15 ...], 382)`.
 
-Ăsta e canalul folosit de `lixu`: nu scrie nimic în flash, doar afișează.
+Ăsta e canalul folosit de AI Colors: nu scrie nimic în flash, doar afișează.
 
 ## Maparea tastelor (`Cfg.ini`, `[KBKEY]`, parser 0x498310)
 
@@ -55,9 +55,9 @@ K<n> = x1,y1,x2,y2, tip, VK, 0, LED, RGBTAB
 * `LED` -> câmpul +0x14 al structurii de tastă (bază 0x684c58, pas 0x58), index în cadrul live.
 * `RGBTAB` -> câmpul +0x4C, index în tabela de culori salvată (`rând * 21 + col`).
 
-Tabelul complet e în `lixu/layout.py`.
+Tabelul complet e în `aicolors/layout.py`.
 
-## Culori salvate per tastă (doar referință, nefolosit de lixu)
+## Culori salvate per tastă (doar referință, nefolosit de AI Colors)
 
 Varianta `CDev916` (0x419d0b): `HidD_SetFeature(h, buf, 380)` cu `buf[0]=0x0B`,
 `buf[1]=slot`, apoi trei planuri de câte 126 bytes R, G, B indexate după `RGBTAB`.

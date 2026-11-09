@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lixu</title>
+<title>AI Colors</title>
 <!--
-  Interfața lixu. Un singur fișier, fără biblioteci externe: modifică liber.
-  Vorbește cu aplicația prin /api/* (vezi lixu/app.py).
+  Interfața aicolors. Un singur fișier, fără biblioteci externe: modifică liber.
+  Vorbește cu aplicația prin /api/* (vezi aicolors/app.py).
 -->
 <style>
   :root {
@@ -82,7 +82,7 @@
 </head>
 <body>
 <header>
-  <h1>LI<span>XU</span></h1>
+  <h1>AI <span>COLORS</span></h1>
   <nav id="nav">
     <button data-tab="live" class="active">Live</button>
     <button data-tab="devices">Dispozitive</button>
@@ -196,7 +196,7 @@
           <textarea id="rawJson" style="min-height:260px"></textarea>
           <div class="row"><button class="btn" id="rawApply">Aplică JSON</button></div>
         </details>
-        <div class="row" style="margin-top:14px"><button class="btn danger" id="quitBtn">Oprește lixu</button>
+        <div class="row" style="margin-top:14px"><button class="btn danger" id="quitBtn">Oprește aicolors</button>
           <span class="muted">luminile revin la efectele lor</span></div>
       </div>
     </div>
@@ -214,7 +214,7 @@ let meta = null, cfg = null, state = null, dirty = false;
 
 async function api(path, body) {
   const opt = body === undefined ? {} :
-    {method: "POST", headers: {"Content-Type": "application/json", "X-Lixu": "1"}, body: JSON.stringify(body)};
+    {method: "POST", headers: {"Content-Type": "application/json", "X-AIColors": "1"}, body: JSON.stringify(body)};
   const r = await fetch(path, opt);
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || r.statusText);
@@ -441,7 +441,7 @@ function renderSettings() {
   $("#setPort").value = cfg.gsi.port; $("#setToken").value = cfg.gsi.token || ""; $("#setUiPort").value = cfg.ui_port;
   $("#setPerEnabled").checked = cfg.peripherals.enabled !== false;
   $("#setPerPoll").value = cfg.peripherals.poll_seconds || 60;
-  $("#cfgPath").textContent = cfg.path ? "Fișier: " + cfg.path : "Fișierul lixu.json se creează la prima salvare.";
+  $("#cfgPath").textContent = cfg.path ? "Fișier: " + cfg.path : "Fișierul aicolors.json se creează la prima salvare.";
 }
 const bind = (id, fn) => $(id).addEventListener("input", e => { fn(e.target); markDirty(); });
 bind("#setFps", t => cfg.fps = +t.value);
@@ -463,8 +463,8 @@ $("#installCfg").onclick = async () => {
 };
 
 $("#quitBtn").onclick = async () => {
-  if (!confirm("Oprești lixu? Luminile nu vor mai urmări CS2.")) return;
-  await api("/api/quit", {}); document.body.innerHTML = "<main><h2>Lixu s-a oprit. Poți închide fereastra.</h2></main>";
+  if (!confirm("Oprești AI Colors? Luminile nu vor mai urmări CS2.")) return;
+  await api("/api/quit", {}); document.body.innerHTML = "<main><h2>AI Colors s-a oprit. Poți închide fereastra.</h2></main>";
 };
 
 document.querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
@@ -488,7 +488,7 @@ async function poll() {
       renderPreviews(state.devices);
       renderPeripherals(state.peripherals);
       if ($("#devices").classList.contains("active") && !dirty && !document.activeElement.closest("#devTable")) renderDevices();
-    } catch { $("#gsiText").textContent = "lixu nu răspunde"; $("#gsiDot").classList.remove("on"); }
+    } catch { $("#gsiText").textContent = "AI Colors nu răspunde"; $("#gsiDot").classList.remove("on"); }
   }
   setTimeout(poll, $("#live").classList.contains("active") ? 250 : 1500);
 }

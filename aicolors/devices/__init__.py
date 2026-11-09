@@ -1,6 +1,6 @@
 """Toate tipurile de dispozitive. Ca să adaugi unul nou:
 
-1. creează lixu/devices/<nume>.py cu o clasă derivată din `Device`
+1. creează aicolors/devices/<nume>.py cu o clasă derivată din `Device`
    (metoda `send(colors)`), o funcție `from_config(entry)` și opțional `discover()`
 2. adaugă-l în FACTORIES (și în DRY_RUN_LEDS) de mai jos
 """
@@ -15,12 +15,12 @@ from .base import Device, DeviceError, Found
 
 # tip -> modulul care are from_config(entry)
 FACTORIES: Dict[str, str] = {
-    "zenkabeat": "lixu.devices.zenkabeat",
-    "wled": "lixu.devices.wled",
-    "govee": "lixu.devices.govee",
-    "logitech": "lixu.devices.logitech",
-    "openrgb": "lixu.devices.openrgb",
-    "tuya": "lixu.devices.tuya",
+    "zenkabeat": "aicolors.devices.zenkabeat",
+    "wled": "aicolors.devices.wled",
+    "govee": "aicolors.devices.govee",
+    "logitech": "aicolors.devices.logitech",
+    "openrgb": "aicolors.devices.openrgb",
+    "tuya": "aicolors.devices.tuya",
 }
 
 # câte LED-uri simulăm în --dry-run când config-ul nu spune

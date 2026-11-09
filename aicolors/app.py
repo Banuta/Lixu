@@ -1,7 +1,7 @@
 """Aplicația completă: server GSI + motor de lumini + mouse/căști + interfață web locală.
 
-Interfața e o pagină (lixu/ui/index.html) servită doar pe 127.0.0.1. Se deschide
-într-o fereastră de tip aplicație (Edge/Chrome cu --app). Când o închizi, lixu
+Interfața e o pagină (aicolors/ui/index.html) servită doar pe 127.0.0.1. Se deschide
+într-o fereastră de tip aplicație (Edge/Chrome cu --app). Când o închizi, aicolors
 rulează mai departe în fundal fără niciun cost.
 """
 
@@ -174,7 +174,7 @@ class App:
         self.engine.reconfigure(new.active_devices, new.fps, new.idle_fps, new.brightness)
         if self.peripherals:
             self.peripherals.settings = new.peripherals
-        path = self.cfg.path or (Path.cwd() / "lixu.json")
+        path = self.cfg.path or (Path.cwd() / "aicolors.json")
         new.path = configmod.save(new, path)
         self.cfg = new
         log.info("Config salvat: %s", path)
@@ -232,7 +232,7 @@ def make_ui_handler(app: App):
     index = UI_DIR / "index.html"
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = "LixuUI/1.0"
+        server_version = "AIColorsUI/1.0"
 
         def _json(self, obj: Any, code: int = 200) -> None:
             body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -263,7 +263,7 @@ def make_ui_handler(app: App):
 
         def do_POST(self) -> None:  # noqa: N802
             # antet obligatoriu: un site străin nu-l poate trimite fără CORS, deci nu poate schimba setări
-            if self.headers.get("X-Lixu") != "1":
+            if self.headers.get("X-AIColors") != "1":
                 self._json({"error": "forbidden"}, 403)
                 return
             length = int(self.headers.get("Content-Length") or 0)

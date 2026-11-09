@@ -1,4 +1,4 @@
-"""`lixu scan`: caută toate dispozitivele cu lumini, în paralel."""
+"""`aicolors scan`: caută toate dispozitivele cu lumini, în paralel."""
 
 from __future__ import annotations
 

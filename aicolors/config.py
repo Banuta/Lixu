@@ -1,7 +1,7 @@
-"""Fișierul de configurare lixu.json.
+"""Fișierul de configurare aicolors.json.
 
-Exemplu complet: lixu.example.json. Poate fi generat cu `lixu scan --write-config`.
-Se caută, în ordine: --config, ./lixu.json, %APPDATA%/lixu/lixu.json (~/.config/lixu/lixu.json).
+Exemplu complet: aicolors.example.json. Poate fi generat cu `aicolors scan --write-config`.
+Se caută, în ordine: --config, ./aicolors.json, %APPDATA%/aicolors/aicolors.json (~/.config/aicolors/aicolors.json).
 """
 
 from __future__ import annotations
@@ -52,13 +52,13 @@ def user_config_path() -> Path:
         base = Path(os.environ.get("APPDATA", Path.home()))
     else:
         base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return base / "lixu" / "lixu.json"
+    return base / "aicolors" / "aicolors.json"
 
 
 def find_config(explicit: Optional[str] = None) -> Optional[Path]:
     if explicit:
         return Path(explicit)
-    for p in (Path.cwd() / "lixu.json", user_config_path()):
+    for p in (Path.cwd() / "aicolors.json", user_config_path()):
         if p.is_file():
             return p
     return None

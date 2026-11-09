@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lixu"
+name = "aicolors"
 version = "0.3.0"
 description = "Lumini CS2 (Game State Integration) pentru tastatură, placă de bază, Logitech, WLED, Govee și Tuya; DPI, polling rate și baterie pentru mouse/căști Logitech"
 readme = "README.md"
@@ -15,13 +15,13 @@ tuya = ["tinytuya>=1.13"]
 exe = ["pyinstaller>=6"]
 
 [project.scripts]
-lixu = "lixu.__main__:main"
+aicolors = "aicolors.__main__:main"
 
 [project.gui-scripts]
-lixu-app = "lixu.__main__:main"
+aicolors-app = "aicolors.__main__:main"
 
 [tool.setuptools]
-packages = ["lixu", "lixu.devices", "lixu.discovery", "lixu.peripherals"]
+packages = ["aicolors", "aicolors.devices", "aicolors.discovery", "aicolors.peripherals"]
 
 [tool.setuptools.package-data]
-lixu = ["ui/*.html"]
+aicolors = ["ui/*.html"]

@@ -7,15 +7,15 @@ import time
 import unittest
 from pathlib import Path
 
-from lixu import config as configmod
-from lixu import effects
-from lixu.devices import create_device, govee, openrgb, wled
-from lixu.devices.zenkabeat import DryRunKeyboard
-from lixu.discovery import mdns
-from lixu.discovery.scan import suggested_devices
-from lixu.devices.base import Found
-from lixu.engine import Engine
-from lixu.gsi import StateStore, parse_state
+from aicolors import config as configmod
+from aicolors import effects
+from aicolors.devices import create_device, govee, openrgb, wled
+from aicolors.devices.zenkabeat import DryRunKeyboard
+from aicolors.discovery import mdns
+from aicolors.discovery.scan import suggested_devices
+from aicolors.devices.base import Found
+from aicolors.engine import Engine
+from aicolors.gsi import StateStore, parse_state
 
 LIVE = {"map": {"phase": "live"}, "round": {"phase": "live"},
         "player": {"team": "CT", "activity": "playing", "state": {"health": 50, "armor": 100}}}
@@ -233,7 +233,7 @@ class EngineTest(unittest.TestCase):
 class ConfigTest(unittest.TestCase):
     def test_roundtrip_and_disabled(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "lixu.json"
+            path = Path(tmp) / "aicolors.json"
             path.write_text(json.dumps({"gsi": {"port": 3456}, "fps": 20, "devices": [
                 {"type": "wled", "host": "10.0.0.5"}, {"type": "govee", "host": "x", "enabled": False}]}))
             cfg = configmod.load(str(path))
@@ -244,7 +244,7 @@ class ConfigTest(unittest.TestCase):
             self.assertEqual(configmod.load(str(path)).port, 3456)
 
     def test_example_config_is_valid(self):
-        example = Path(__file__).resolve().parent.parent / "lixu.example.json"
+        example = Path(__file__).resolve().parent.parent / "aicolors.example.json"
         cfg = configmod.load(str(example))
         for entry in cfg.devices:
             self.assertIsNotNone(create_device(entry, dry_run=True))

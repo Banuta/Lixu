@@ -6,7 +6,7 @@ bateria o dată pe minut: practic zero impact asupra jocului.
 Cu G HUB pornit:
   * bateria se citește fără probleme
   * DPI/polling rate: G HUB își aplică propriul profil (și per joc), deci poate
-    suprascrie ce setează lixu. Ori setezi aceleași valori în G HUB, ori închizi
+    suprascrie ce setează aicolors. Ori setezi aceleași valori în G HUB, ori închizi
     G HUB (și folosești OpenRGB pentru lumini), ori lași mouse-ul în „host mode”.
 """
 

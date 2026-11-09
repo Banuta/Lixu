@@ -1,4 +1,4 @@
-"""Găsește instalarea CS2 și scrie fișierul gamestate_integration_lixu.cfg."""
+"""Găsește instalarea CS2 și scrie fișierul gamestate_integration_aicolors.cfg."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ import sys
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-CFG_NAME = "gamestate_integration_lixu.cfg"
+CFG_NAME = "gamestate_integration_aicolors.cfg"
 CS2_SUBDIR = Path("steamapps/common/Counter-Strike Global Offensive/game/csgo/cfg")
 
 
 def render_cfg(port: int = 3000, token: Optional[str] = None, host: str = "127.0.0.1") -> str:
     auth = f'\n  "auth"\n  {{\n    "token" "{token}"\n  }}' if token else ""
-    return f'''"Lixu keyboard"
+    return f'''"AI Colors"
 {{
   "uri"       "http://{host}:{port}/"
   "timeout"   "1.1"

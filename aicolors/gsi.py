@@ -157,7 +157,7 @@ class StateStore:
 def make_handler(store: StateStore, token: Optional[str],
                  on_update: Optional[Callable[[GameState], None]] = None):
     class Handler(BaseHTTPRequestHandler):
-        server_version = "LixuGSI/1.0"
+        server_version = "AIColorsGSI/1.0"
 
         def do_POST(self) -> None:  # noqa: N802 (nume impus de http.server)
             length = _int(self.headers.get("Content-Length"))

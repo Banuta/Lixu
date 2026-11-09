@@ -1,12 +1,12 @@
-"""Linia de comandă: python -m lixu <comandă>   (fără comandă = app)
+"""Linia de comandă: python -m aicolors <comandă>   (fără comandă = app)
 
   app          aplicația cu interfață (fereastră) + lumini + mouse/căști
   run          la fel, fără să deschidă fereastra (interfața rămâne pe http://127.0.0.1:3001)
   battery      bateria mouse-ului și căștilor Logitech
-  mouse        setează DPI / polling rate: lixu mouse --dpi 1600 --rate 1000
+  mouse        setează DPI / polling rate: aicolors mouse --dpi 1600 --rate 1000
   scan         caută dispozitivele: tastatură, placă de bază, Logitech, WLED, Govee, OpenRGB
   identify     aprinde pe rând fiecare dispozitiv din config, ca să vezi care e care
-  install-cfg  scrie gamestate_integration_lixu.cfg în folderul CS2
+  install-cfg  scrie gamestate_integration_aicolors.cfg în folderul CS2
   test         test detaliat pentru tastatura ZENKABEAT
   demo         simulează o rundă (fără CS2), util cu --dry-run --preview
   probe        listează interfețele HID ale tastaturii
@@ -29,12 +29,12 @@ from .devices.zenkabeat import KeyboardNotFound, open_keyboard
 from .engine import Engine
 from .gsi import StateStore
 
-log = logging.getLogger("lixu")
+log = logging.getLogger("aicolors")
 
 
 def _common(p: argparse.ArgumentParser, keyboard_only: bool = False) -> None:
     if not keyboard_only:
-        p.add_argument("--config", help="fișierul lixu.json (implicit ./lixu.json sau %%APPDATA%%/lixu/lixu.json)")
+        p.add_argument("--config", help="fișierul aicolors.json (implicit ./aicolors.json sau %%APPDATA%%/aicolors/aicolors.json)")
     p.add_argument("--dry-run", action="store_true", help="nu trimite nimic la dispozitive")
     p.add_argument("--preview", action="store_true", help="desenează tastatura în terminal (cu --dry-run)")
 
@@ -83,12 +83,12 @@ def cmd_app(args) -> int:
 
     try:
         app = _app(args)
-    except OSError as exc:  # portul interfeței e ocupat: probabil lixu rulează deja
+    except OSError as exc:  # portul interfeței e ocupat: probabil aicolors rulează deja
         log.warning("Nu pot porni (%s). Deschid interfața existentă.", exc)
         open_window(f"http://127.0.0.1:{configmod.load(args.config).ui_port}/")
         return 0
     open_window(app.ui_url)
-    log.info("Lixu rulează. Interfața: %s", app.ui_url)
+    log.info("AI Colors rulează. Interfața: %s", app.ui_url)
     try:
         app.wait()
     except KeyboardInterrupt:
@@ -287,7 +287,7 @@ def cmd_probe(args) -> int:
         return 1
     for i in interfaces:
         role = {
-            protocol.FEATURE_LEN_STREAM: "cadre LED (folosită de lixu)",
+            protocol.FEATURE_LEN_STREAM: "cadre LED (folosită de AI Colors)",
             protocol.FEATURE_LEN_DATA: "date/profiluri",
             protocol.FEATURE_LEN_CMD: "comenzi",
         }.get(i.feature_len, "") if i.usage_page == protocol.VENDOR_USAGE_PAGE else ""
@@ -303,9 +303,9 @@ COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "ba
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="lixu", description="Lumini CS2 pentru tastatură, placă de bază, "
+    p = argparse.ArgumentParser(prog="aicolors", description="Lumini CS2 pentru tastatură, placă de bază, "
                                                          "Logitech, WLED și Govee")
-    p.add_argument("--version", action="version", version=f"lixu {__version__}")
+    p.add_argument("--version", action="version", version=f"AI Colors {__version__}")
     p.add_argument("-v", "--verbose", action="store_true")
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -326,7 +326,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--timeout", type=float, default=2.5)
     s.add_argument("--subnet", help="scanează și subrețeaua pentru WLED, ex. 192.168.1.0/24")
     s.add_argument("--openrgb-host", default="127.0.0.1")
-    s.add_argument("--write-config", metavar="FIȘIER", help="scrie config-ul sugerat, ex. lixu.json")
+    s.add_argument("--write-config", metavar="FIȘIER", help="scrie config-ul sugerat, ex. aicolors.json")
     s.add_argument("--force", action="store_true")
     s.set_defaults(func=cmd_scan)
 
@@ -376,8 +376,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     level = logging.DEBUG if args.verbose else logging.INFO
     fmt = "%(asctime)s %(levelname)s %(message)s"
-    if sys.stderr is None:  # Lixu.exe fără consolă: log în %APPDATA%/lixu/lixu.log
-        log_path = configmod.user_config_path().parent / "lixu.log"
+    if sys.stderr is None:  # AIColors.exe fără consolă: log în %APPDATA%/aicolors/aicolors.log
+        log_path = configmod.user_config_path().parent / "aicolors.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         logging.basicConfig(level=level, format=fmt, filename=str(log_path), encoding="utf-8")
     else:
