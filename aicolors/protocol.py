@@ -46,8 +46,22 @@ CMD_WRITE = 0x08
 TABLE_RGB = 0xB8
 
 
+# Al doilea byte e o ADRESĂ din memoria tastaturii (în pași de 256 bytes).
+# Sub 0xB000 e codul tastaturii (firmware): o scriere acolo ar strica tastatura.
+WRITE_MIN_PAGE = 0xB0
+
+
 def read_request(table: int) -> bytes:
     return bytes((CMD_REPORT_ID, CMD_READ, table, 0, 0, 0, 0))
+
+
+def write_packet(page: int, data: bytes, op: int = CMD_WRITE) -> bytes:
+    """Pachet de scriere 1024 bytes la adresa page*256. Refuză zona de cod."""
+    if not WRITE_MIN_PAGE <= page <= 0xFC:
+        raise ValueError(f"scriere refuzată la adresa {page << 8:#06x}: e zona de cod a tastaturii")
+    if len(data) != 1024:
+        raise ValueError("se scriu exact 1024 bytes")
+    return bytes((DATA_REPORT_ID, op, page, 0x00, 0x40, 0, 0, 0)) + bytes(data)
 
 
 STREAM_REPORT_ID = 0x08

@@ -202,12 +202,27 @@ class KbTestTableTest(unittest.TestCase):
 
 
 class KbLearnDiffTest(unittest.TestCase):
-    def test_diff(self):
+    def test_changed_runs_and_describe(self):
         from aicolors import kblearn
 
-        a = {"profil0": "00" * 20, "paleta_B8": "11" * 20}
-        b = {"profil0": "00" * 5 + "07" + "00" * 14, "paleta_B8": "11" * 20}
-        lines = kblearn.diff(a, b)
-        self.assertEqual(len(lines), 1)
-        self.assertIn("profil0: 1 bytes: [5] 00->07", lines[0])
-        self.assertIn("nimic", kblearn.diff(a, a)[0])
+        a = bytes(0xC000)
+        b = bytearray(a)
+        b[0xB802] = 7
+        b[0xB805] = 9
+        b[0xC000 - 1] = 1
+        self.assertEqual(kblearn.changed_runs(a, bytes(b)), [(0xB802, 0xB806), (0xBFFF, 0xC000)])
+        text = "\n".join(kblearn.describe(a, bytes(b)))
+        self.assertIn("0xb802-0xb805 (date)", text)
+        self.assertIn("nimic", kblearn.describe(a, a)[0])
+        b[0x10] = 1
+        self.assertIn("COD!", "\n".join(kblearn.describe(a, bytes(b))))
+
+
+class WriteGuardTest(unittest.TestCase):
+    def test_code_area_refused(self):
+        for page in (0x00, 0x03, 0x80, 0xAF, 0xFD):
+            with self.assertRaises(ValueError):
+                protocol.write_packet(page, bytes(1024))
+        pkt = protocol.write_packet(0xB8, bytes(1024))
+        self.assertEqual(pkt[:8], bytes((6, 8, 0xB8, 0, 0x40, 0, 0, 0)))
+        self.assertEqual(len(pkt), 1032)

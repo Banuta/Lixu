@@ -52,10 +52,8 @@ def read_table() -> bytes:
 
 
 def write_table(table: bytes) -> None:
-    if len(table) != TABLE_LEN:
-        raise ValueError("tabela trebuie să aibă 1024 bytes")
+    packet = protocol.write_packet(protocol.TABLE_RGB, table)
     hid_win, _cmd, data = _interfaces()
-    packet = bytes((protocol.DATA_REPORT_ID, protocol.CMD_WRITE, protocol.TABLE_RGB, 0x00, 0x40, 0, 0, 0)) + table
     with hid_win.HidHandle(data) as hd:
         hd.set_feature(packet)
 
