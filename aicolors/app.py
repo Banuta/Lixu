@@ -58,6 +58,7 @@ DEVICE_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "logitech": {"type": "logitech", "target": "mouse", "effect": "ambient"},
     "openrgb": {"type": "openrgb", "device_type": "motherboard", "effect": "ambient"},
     "tuya": {"type": "tuya", "id": "", "effect": "ambient"},
+    "signalrgb": {"type": "signalrgb", "effect": "ambient", "leds": 32},
 }
 
 
@@ -304,6 +305,17 @@ def make_ui_handler(app: App):
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
+            elif path == "/api/signalrgb":  # citit de efectul din SignalRGB (alt „origin” -> CORS)
+                from .devices import signalrgb
+
+                body = json.dumps(signalrgb.latest()).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
             elif path == "/api/state":
                 self._json(app.api_state())
             elif path == "/api/config":
@@ -334,6 +346,8 @@ def make_ui_handler(app: App):
                 "/api/openrgb": lambda: app.openrgb(data.get("action", "status")),
                 "/api/tuya/keys": lambda: app.tuya_keys(data),
                 "/api/autostart": lambda: app.autostart(data.get("enabled")),
+                "/api/signalrgb/install": lambda: {"ok": True, "path": str(
+                    __import__("aicolors.devices.signalrgb", fromlist=["x"]).install_effect())},
                 "/api/kbmode": lambda: app.engine.keyboard_preview(data.get("value")),
                 "/api/quit": lambda: (threading.Timer(0.3, app.engine.stop).start(), {"ok": True})[1],
                 "/api/peripherals/refresh": lambda: (app.peripherals and app.peripherals.refresh(), {"ok": True})[1],

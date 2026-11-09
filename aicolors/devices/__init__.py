@@ -21,10 +21,11 @@ FACTORIES: Dict[str, str] = {
     "logitech": "aicolors.devices.logitech",
     "openrgb": "aicolors.devices.openrgb",
     "tuya": "aicolors.devices.tuya",
+    "signalrgb": "aicolors.devices.signalrgb",
 }
 
 # câte LED-uri simulăm în --dry-run când config-ul nu spune
-DRY_RUN_LEDS = {"zenkabeat": 126, "wled": 30, "govee": 1, "logitech": 1, "openrgb": 8, "tuya": 1}
+DRY_RUN_LEDS = {"zenkabeat": 126, "wled": 30, "govee": 1, "logitech": 1, "openrgb": 8, "tuya": 1, "signalrgb": 32}
 
 
 class DryRunDevice(Device):
@@ -47,7 +48,7 @@ def create_device(entry: dict, dry_run: bool = False, preview: bool = False) -> 
     kind = entry.get("type")
     if kind not in FACTORIES:
         raise DeviceError(f"tip de dispozitiv necunoscut: {kind!r} (cunoscute: {', '.join(FACTORIES)})")
-    if dry_run:
+    if dry_run and kind != "signalrgb":  # puntea SignalRGB nu atinge hardware: rămâne reală
         if kind == "zenkabeat":
             from .zenkabeat import DryRunKeyboard
 

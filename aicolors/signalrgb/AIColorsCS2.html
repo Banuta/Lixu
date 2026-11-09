@@ -1,0 +1,61 @@
+<head>
+  <title>AI Colors CS2</title>
+  <meta description="Culorile din AI Colors (CS2: echipă, viață, bombă, flash) pe toate dispozitivele SignalRGB."/>
+  <meta publisher="AI Colors"/>
+  <meta property="port" label="Port AI Colors" type="number" min="1" max="65535" default="3001"/>
+  <meta property="vertical" label="Pe verticală" type="boolean" default="0"/>
+</head>
+<body style="margin: 0; padding: 0; background: #000;">
+  <canvas id="exCanvas" width="320" height="200"></canvas>
+</body>
+<script>
+  // Efect SignalRGB: citește culorile calculate de AI Colors și le întinde pe canvas,
+  // de la stânga la dreapta (sau de sus în jos). Dispozitivele primesc culoarea locului
+  // în care sunt așezate în Layout-ul SignalRGB. Dacă AI Colors nu răspunde, rămâne
+  // ultima culoare și apoi se estompează.
+  var c = document.getElementById("exCanvas");
+  var ctx = c.getContext("2d");
+  var colors = [];
+  var lastOk = 0;
+  var busy = false;
+
+  function poll() {
+    if (busy) return;
+    busy = true;
+    var p = (typeof port !== "undefined" && port) ? port : 3001;
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "http://127.0.0.1:" + p + "/api/signalrgb", true);
+    xhr.timeout = 500;
+    xhr.onload = function () {
+      try {
+        var d = JSON.parse(xhr.responseText);
+        if (d.colors && d.colors.length) { colors = d.colors; lastOk = Date.now(); }
+      } catch (e) {}
+      busy = false;
+    };
+    xhr.onerror = xhr.ontimeout = function () { busy = false; };
+    xhr.send();
+  }
+
+  function update() {
+    var w = c.width, h = c.height;
+    var vert = (typeof vertical !== "undefined") && (vertical === true || vertical === 1 || vertical === "1" || vertical === "true");
+    var stale = Date.now() - lastOk > 3000;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, w, h);
+    if (colors.length) {
+      ctx.globalAlpha = stale ? 0.15 : 1;
+      var n = colors.length;
+      for (var i = 0; i < n; i++) {
+        ctx.fillStyle = colors[i];
+        if (vert) ctx.fillRect(0, Math.floor(i * h / n), w, Math.ceil(h / n) + 1);
+        else ctx.fillRect(Math.floor(i * w / n), 0, Math.ceil(w / n) + 1, h);
+      }
+    }
+    window.requestAnimationFrame(update);
+  }
+
+  setInterval(poll, 60);
+  window.requestAnimationFrame(update);
+</script>

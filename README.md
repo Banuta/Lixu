@@ -121,6 +121,22 @@ Limitări reale:
 * Dacă reîmperechezi un bec în Smart Life, cheia se schimbă: apasă din nou „Ia cheile”.
 * Alternativă mai rapidă pentru unele becuri: firmware alternativ (OpenBeken / ESPHome).
 
+## SignalRGB (pentru ce merge doar acolo, ex. memoriile Kingston)
+
+Dacă un dispozitiv merge doar cu un plugin SignalRGB (cum sunt unele memorii Kingston FURY),
+AI Colors îi trimite culorile prin SignalRGB, fără SignalRGB Pro:
+
+1. **Setări -> SignalRGB -> Instalează efectul în SignalRGB** (pune `AI Colors CS2.html` în
+   `Documents\WhirlwindFX\Effects`).
+2. **Dispozitive -> + Adaugă manual -> signalrgb** (sau linia
+   `{"type": "signalrgb", "effect": "ambient", "leds": 32}`) -> **Salvează**.
+3. Repornește SignalRGB și alege efectul **AI Colors CS2**.
+
+Efectul citește culorile de la AI Colors (`http://127.0.0.1:3001/api/signalrgb`) și le întinde de la
+stânga la dreapta pe canvasul SignalRGB; fiecare dispozitiv ia culoarea locului unde e așezat în
+Layout. Cu `"effect": "health"` bara de viață merge de la stânga la dreapta. Ca să nu se certe,
+lasă în SignalRGB doar ce nu merge altfel și scoate din AI Colors dispozitivele controlate de SignalRGB.
+
 ## OpenRGB: zone separate (benzi pe conectorii plăcii)
 
 O placă de bază are mai multe zone: LED-urile de pe placă și conectorii ARGB (pe Gigabyte

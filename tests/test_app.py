@@ -374,3 +374,30 @@ class BatteryWarningTest(unittest.TestCase):
         self.assertEqual(battery_warnings(snap, seen), [])
         snap["devices"][0].update(battery=10, charging=False)
         self.assertEqual(battery_warnings(snap, seen), ["G502: baterie 10%"])
+
+
+class SignalRGBBridgeTest(unittest.TestCase):
+    def test_latest_and_install(self):
+        import os
+
+        from aicolors.devices import signalrgb
+
+        dev = signalrgb.from_config({"type": "signalrgb", "leds": 4})
+        self.assertEqual(dev.led_count, 4)
+        dev.send([(255, 0, 0), (0, 0, 255)] * 2)
+        self.assertEqual(signalrgb.latest()["colors"], ["#ff0000", "#0000ff", "#ff0000", "#0000ff"])
+        dev.close()
+        self.assertEqual(signalrgb.latest()["colors"], [])
+        with tempfile.TemporaryDirectory() as tmp:
+            old = os.environ.get("USERPROFILE")
+            os.environ["USERPROFILE"] = tmp
+            try:
+                path = signalrgb.install_effect()
+                self.assertTrue(path.exists())
+                self.assertIn("WhirlwindFX", str(path))
+                self.assertIn("exCanvas", path.read_text(encoding="utf-8"))
+            finally:
+                if old is None:
+                    os.environ.pop("USERPROFILE", None)
+                else:
+                    os.environ["USERPROFILE"] = old

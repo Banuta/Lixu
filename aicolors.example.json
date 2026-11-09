@@ -16,6 +16,7 @@
     {"type": "openrgb", "device_type": "motherboard", "effect": "ambient", "brightness": 0.7},
     {"type": "openrgb", "match": "B550M AORUS ELITE", "zone": "D_LED2", "effect": "health", "name": "Banda D_LED2", "enabled": false},
     {"type": "openrgb", "device_type": "dram", "all": true, "effect": "ambient", "name": "Memorii RAM"},
+    {"type": "signalrgb", "effect": "ambient", "leds": 32, "enabled": false},
     {"type": "tuya", "id": "bf0123456789abcdef", "effect": "ambient", "name": "Bec birou", "enabled": false},
     {"type": "openrgb", "match": "Corsair", "effect": "ammo", "enabled": false}
   ]

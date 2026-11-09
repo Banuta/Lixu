@@ -214,6 +214,19 @@
           confirmarea de administrator: e nevoie pentru placa de bază și memorii.</p>
       </div>
       <div class="card">
+        <h2>SignalRGB <span class="sub">pentru ce merge doar acolo (ex. memorii Kingston)</span></h2>
+        <p class="muted" style="font-size:12px;margin-top:0">AI Colors trimite culorile către efectul „AI Colors CS2”
+          din SignalRGB, care le pune pe toate dispozitivele din SignalRGB. Nu cere Pro.</p>
+        <div class="row"><button class="btn primary" id="srgbInstall">Instalează efectul în SignalRGB</button></div>
+        <ol class="muted" style="font-size:12px;padding-left:18px;margin:6px 0">
+          <li>Dispozitive → + Adaugă manual → <b>signalrgb</b> → Salvează.</li>
+          <li>Repornește SignalRGB, apoi la Effects / Library alege <b>AI Colors CS2</b>.</li>
+          <li>Ca să nu se certe, lasă în SignalRGB doar ce nu merge altfel (memoriile) și scoate din AI Colors
+            dispozitivele pe care le controlează SignalRGB.</li>
+        </ol>
+        <div id="srgbResult" class="muted" style="font-size:12px"></div>
+      </div>
+      <div class="card">
         <h2>Tuya / Smart Life <span class="sub">cheile becurilor</span></h2>
         <p class="muted" style="font-size:12px;margin-top:0">O singură dată: cont gratuit pe iot.tuya.com → Cloud → Create
           Cloud Project (Smart Home, data center Central Europe) → Devices → Link App Account (scanezi QR-ul cu Smart Life).
@@ -569,6 +582,10 @@ $("#autoStart").onchange = async e => {
   try { const r = await api("/api/autostart", {enabled: e.target.checked}); e.target.checked = r.enabled;
         toast(r.enabled ? "Pornește odată cu Windows" : "Nu mai pornește cu Windows"); }
   catch (err) { toast("Eroare: " + err.message, 5000); e.target.checked = !e.target.checked; }
+};
+$("#srgbInstall").onclick = async () => {
+  try { const r = await api("/api/signalrgb/install", {}); $("#srgbResult").textContent = "Pus în: " + r.path; }
+  catch (err) { $("#srgbResult").textContent = "Eroare: " + err.message; }
 };
 $("#tuyaFetch").onclick = async () => {
   $("#tuyaResult").textContent = "mă conectez la Tuya...";

@@ -23,4 +23,4 @@ aicolors-app = "aicolors.__main__:main"
 packages = ["aicolors", "aicolors.devices", "aicolors.discovery", "aicolors.peripherals"]
 
 [tool.setuptools.package-data]
-aicolors = ["ui/*.html", "ui/*.ico"]
+aicolors = ["ui/*.html", "ui/*.ico", "signalrgb/*.html"]

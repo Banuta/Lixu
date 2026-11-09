@@ -11,6 +11,7 @@ if errorlevel 1 (
 )
 python -m PyInstaller --noconfirm --clean --onefile --noconsole --name AIColors --icon "aicolors\ui\aicolors.ico" ^
   --add-data "aicolors\ui;aicolors\ui" ^
+  --add-data "aicolors\signalrgb;aicolors\signalrgb" ^
   --collect-submodules aicolors ^
   --collect-all tinytuya ^
   --collect-submodules cryptography ^
