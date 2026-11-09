@@ -28,6 +28,7 @@ class Config:
     colors: Dict[str, str] = field(default_factory=dict)
     peripherals: Dict[str, Any] = field(default_factory=lambda: {"enabled": True, "poll_seconds": 60})
     ui_port: int = 3001
+    openrgb: Dict[str, Any] = field(default_factory=lambda: {"autostart": False})
     path: Optional[Path] = None
 
     @property
@@ -43,6 +44,7 @@ class Config:
             "colors": self.colors,
             "peripherals": self.peripherals,
             "ui_port": self.ui_port,
+            "openrgb": self.openrgb,
             "devices": self.devices,
         }
 
@@ -81,6 +83,7 @@ def from_dict(data: Dict[str, Any], path: Optional[Path] = None) -> Config:
         colors=dict(data.get("colors") or {}),
         peripherals=dict(data.get("peripherals") or {"enabled": True, "poll_seconds": 60}),
         ui_port=int(data.get("ui_port", 3001)),
+        openrgb=dict(data.get("openrgb") or {"autostart": False}),
         path=path,
     )
 

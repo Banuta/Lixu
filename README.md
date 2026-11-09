@@ -28,7 +28,7 @@ Ai nevoie de Python 3.9+ ([python.org](https://www.python.org/downloads/)).
 ```bat
 git clone https://github.com/banuta/lixu.git
 cd lixu
-pip install .[tuya]
+pip install .
 aicolors
 ```
 
@@ -55,18 +55,26 @@ Totul se salvează în `aicolors.json` și se aplică imediat, fără restart.
 
 * **CS2**: în Setări apasă **Instalează cfg în CS2** (sau `aicolors install-cfg`), apoi repornește CS2.
 * **ZENKABEAT**: închide aplicația originală (și din tray) și conectează tastatura prin cablu.
+  Unele modele (ca „BY Tech Gaming Keyboard” 05AC:024F) nu au culori live; pentru ele AI Colors
+  **schimbă efectul tastaturii** după situația din joc (meniu, CT, T, bombă, mort, viață mică).
+  Alegi efectele în **Dispozitive -> Efectele tastaturii ZENKABEAT**, cu butonul **Încearcă**.
+  Scrie un singur byte (0xB60D, același pe care îl scrie tasta Fn), doar la schimbarea situației,
+  cel mult o dată la 3 secunde, și pune înapoi efectul tău la închidere.
 * **WLED**: nimic special, doar aceeași rețea. Când AI Colors se oprește, banda revine singură la
   efectul ei după 2 secunde.
 * **Govee**: în Govee Home -> dispozitiv -> setări -> activează **LAN Control**.
 * **Tuya / Smart Life**: vezi [mai jos](#becuri-tuya--smart-life).
-* **Logitech, lumini**: G HUB pornit, iar în G HUB -> Settings activat „Allow games &
-  applications to control my illumination”.
+* **Logitech, lumini**: **nu ai nevoie de G HUB**. Fără G HUB, AI Colors vorbește direct cu
+  mouse-ul și căștile prin HID++ (ca Solaar). Dacă G HUB e totuși pornit, folosește SDK-ul lui
+  (atunci activează în G HUB „Allow games & applications to control my illumination”).
 * **Logitech, baterie / DPI / polling**: funcționează cu sau fără G HUB. Dacă G HUB e pornit,
   își poate aplica propriul profil (și per joc) peste DPI-ul setat de AI Colors. Atunci setează
   aceleași valori și în G HUB, sau bifează **Mod host** în AI Colors (mouse-ul nu mai folosește
   profilurile din memoria lui).
-* **Placa de bază**: instalează [OpenRGB](https://openrgb.org), pornește-l **ca administrator**,
-  apoi în tab-ul *SDK Server* apasă *Start Server* (sau `OpenRGB.exe --server --startminimized`).
+* **Placa de bază**: în **Setări -> OpenRGB** apasă **Descarcă OpenRGB** (din sursa oficială),
+  apoi **Pornește OpenRGB (administrator)**. Se pornește minimizat, cu serverul activ. Bifează
+  „pornește OpenRGB odată cu AI Colors” ca să nu mai faci asta de fiecare dată.
+  Din linia de comandă: `aicolors openrgb install`, apoi `aicolors openrgb start`.
 * **Memorii Kingston FURY RGB**: tot prin OpenRGB, ca placa de bază. Închide **Kingston FURY CTRL**,
   dacă îl ai. În OpenRGB apar ca „Kingston Fury DDR4/DDR5 DRAM”, câte una pe plăcuță; AI Colors le
   ia pe toate ca un singur dispozitiv (`"device_type": "dram"`). Cu efectul `health`, bara de viață
@@ -81,18 +89,18 @@ singură dată** din contul tău Tuya:
 1. Fă-ți cont gratuit pe [iot.tuya.com](https://iot.tuya.com) și creează un *Cloud Project*
    (Smart Home, data center Europa).
 2. La *Devices -> Link App Account*, scanează QR-ul cu aplicația Smart Life. Becurile apar în proiect.
-3. În folderul aplicației rulează:
-   ```bat
-   pip install tinytuya
-   python -m tinytuya wizard
-   ```
-   Wizard-ul cere API Key/Secret din proiect și scrie `devices.json` cu cheile.
+3. Din proiect (*Overview*) copiezi **Access ID** și **Access Secret** în AI Colors, la
+   **Setări -> Tuya / Smart Life**, și apeși **Ia cheile din contul Tuya**. Cheile becurilor se
+   salvează în `devices.json`, în folderul aplicației; Access ID/Secret nu se salvează.
+   (Merge și varianta clasică: `python -m tinytuya wizard`.)
 4. În AI Colors: **Dispozitive -> Scanează**. Becurile apar cu „+ Adaugă”.
+
+Biblioteca `tinytuya` e inclusă în `AIColors.exe` și se instalează automat cu `pip install .`.
 
 Limitări reale:
 * Becurile Tuya acceptă doar câteva comenzi pe secundă. AI Colors le trimite doar culoarea de
   ambient (echipă, bombă, flash), de maxim 4 ori pe secundă. Nu vor fi la fel de rapide ca WLED.
-* Dacă reîmperechezi un bec în Smart Life, cheia se schimbă și rulezi din nou wizard-ul.
+* Dacă reîmperechezi un bec în Smart Life, cheia se schimbă: apasă din nou „Ia cheile”.
 * Alternativă mai rapidă pentru unele becuri: firmware alternativ (OpenBeken / ESPHome).
 
 ## Config (`aicolors.json`)

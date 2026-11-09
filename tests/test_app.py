@@ -17,7 +17,7 @@ class FakeMouse:
     """Simulează un mouse HID++ 2.0 (ca G502 LIGHTSPEED) la nivel de rapoarte."""
 
     FEATURES = {hidpp.ROOT: 0, hidpp.DEVICE_NAME: 2, hidpp.BATTERY_VOLTAGE: 4,
-                hidpp.ADJUSTABLE_DPI: 6, hidpp.REPORT_RATE: 7, hidpp.ONBOARD_PROFILES: 9}
+                hidpp.ADJUSTABLE_DPI: 6, hidpp.REPORT_RATE: 7, hidpp.ONBOARD_PROFILES: 9, hidpp.RGB_EFFECTS: 10}
 
     def __init__(self, index=1, offline=False):
         self.index = index
@@ -28,6 +28,8 @@ class FakeMouse:
         self.mode = 1
         self.name = b"G502 LIGHTSPEED"
         self.written = []
+        self.light_control = None
+        self.zone_colors = {}
 
     def write(self, data):
         self.written.append(bytes(data))
@@ -71,6 +73,19 @@ class FakeMouse:
             elif func == 1:
                 self.mode = p[0]
                 r = b""
+        elif fid == hidpp.RGB_EFFECTS:
+            if func == 0 and p[0] == 0xFF:
+                r = bytes((0, 0, 2))
+            elif func == 0 and p[1] == 0xFF:
+                r = bytes((p[0], 0, 0x00, 0x01, 3))
+            elif func == 0:
+                r = bytes((p[0], p[1], 0x00, {0: 0x00, 1: 0x01, 2: 0x0A}[p[1]]))
+            elif func == 5:
+                self.light_control = p[1]
+                r = b""
+            elif func == 1:
+                self.zone_colors[p[0]] = (p[1], tuple(p[2:5]), p[12])
+                r = b""
         if r is None:
             self.queue.append(bytes((0x11, idx, 0xFF, feat, fn, 0x07)) + b"\x00" * 14)
         else:
@@ -109,6 +124,19 @@ class HidppTest(unittest.TestCase):
         self.assertEqual(dev.onboard_mode(), "onboard")
         dev.set_host_mode(True)
         self.assertEqual(dev.onboard_mode(), "host")
+
+    def test_lighting_rgb_effects(self):
+        mouse = FakeMouse()
+        dev = hidpp.HidppDevice(mouse, index=1, sw_id=0x0C)
+        self.assertEqual(dev.light_feature(), hidpp.RGB_EFFECTS)
+        self.assertEqual(dev.light_zones(), [(0, 1), (1, 1)])
+        dev.take_light_control(True)
+        self.assertEqual(mouse.light_control, 1)
+        dev.set_zone_static(1, 1, (255, 110, 0))
+        self.assertEqual(mouse.zone_colors[1], (1, (255, 110, 0), 0x01))
+        self.assertEqual(mouse.written[-1][3] & 0x0F, 0x0C)  # sw_id propriu
+        dev.take_light_control(False)
+        self.assertEqual(mouse.light_control, 0)
 
     def test_missing_feature_and_wrong_index(self):
         dev = hidpp.HidppDevice(FakeMouse(), index=1)
@@ -269,3 +297,65 @@ class AppApiTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OpenRGBSetupTest(unittest.TestCase):
+    def test_pick_windows_zip(self):
+        from aicolors import openrgb_setup as o
+
+        releases = [{"draft": False, "assets": [
+            {"name": "OpenRGB_1.0_Linux_64.AppImage", "browser_download_url": "https://codeberg.org/x/linux"},
+            {"name": "OpenRGB_1.0_Windows_32_abc.zip", "browser_download_url": "https://codeberg.org/x/w32"},
+            {"name": "OpenRGB_1.0_Windows_64_abc.zip", "browser_download_url": "https://codeberg.org/x/w64"}]}]
+        self.assertEqual(o.pick_from_codeberg(releases), "https://codeberg.org/x/w64")
+        html = '<a href="releases/release_0.9/OpenRGB_0.9_Windows_64_b5f46e3.zip">Windows</a>'
+        self.assertEqual(o.pick_from_page(html), "https://openrgb.org/releases/release_0.9/OpenRGB_0.9_Windows_64_b5f46e3.zip")
+        self.assertIsNone(o.pick_from_page('<a href="x_Linux_64.zip">'))
+
+    def test_refuses_foreign_host(self):
+        from aicolors import openrgb_setup as o
+
+        orig = o.latest_url
+        o.latest_url = lambda: "https://evil.example.com/OpenRGB_Windows_64.zip"
+        try:
+            with self.assertRaises(RuntimeError):
+                o.install()
+        finally:
+            o.latest_url = orig
+
+
+class TuyaCloudTest(unittest.TestCase):
+    def test_fetch_keys_writes_devices_json(self):
+        import os
+
+        calls = {}
+
+        class FakeCloud:
+            def __init__(self, **kw):
+                calls.update(kw)
+                self.error = None
+
+            def getdevices(self, verbose=False):
+                return [{"id": "bf01", "name": "Bec birou", "key": "k1", "uuid": "u"}, {"name": "fara id"}]
+
+        sys.modules["tinytuya"] = types.SimpleNamespace(Cloud=FakeCloud)
+        with tempfile.TemporaryDirectory() as tmp:
+            old = os.environ.get("XDG_CONFIG_HOME"), os.environ.get("APPDATA")
+            os.environ["XDG_CONFIG_HOME"] = os.environ["APPDATA"] = tmp
+            try:
+                from aicolors.devices import tuya
+
+                path = tuya.fetch_cloud_keys("eu", "id", "secret", ["bf01"])
+                saved = json.loads(path.read_text())
+                self.assertEqual(saved, [{"id": "bf01", "name": "Bec birou", "key": "k1", "ip": None,
+                                          "version": None, "product_name": None, "mac": None}])
+                self.assertEqual(calls["apiDeviceID"], "bf01")
+                self.assertEqual(tuya.wizard_devices()["bf01"]["key"], "k1")
+                self.assertNotIn("secret", path.read_text())
+            finally:
+                for k, v in zip(("XDG_CONFIG_HOME", "APPDATA"), old):
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+                sys.modules.pop("tinytuya", None)

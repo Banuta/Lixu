@@ -139,7 +139,73 @@ def open_keyboard(dry_run: bool = False, preview: bool = False,
     return ZenkabeatKeyboard(rgb_order=rgb_order)
 
 
+class ZenkabeatModeKeyboard(Device):
+    """Firmware fără canal live: schimbăm efectul tastaturii după situația din joc.
+
+    `modes` = {situație: număr efect}; situațiile lipsă sau None păstrează efectul tău.
+    O scriere doar când se schimbă situația, cel mult una la 3 secunde.
+    """
+
+    kind = "zenkabeat"
+    min_interval = 3.0
+    keepalive = 1e9
+    scene_based = True
+    DEFAULT_MODES = {"bomb": 4}
+
+    def __init__(self, modes: Optional[dict] = None, writer=None):
+        Device.__init__(self, "ZENKABEAT (efecte)", 1)
+        if writer is None:
+            from ..kbmode import KbModeWriter
+
+            writer = KbModeWriter()
+        self.writer = writer
+        self.modes = dict(self.DEFAULT_MODES if modes is None else modes)
+        self.original = writer.current()
+        self.current = self.original
+        self.scene = ""
+        log.info("Tastatură în modul efecte; efectul tău: %d", self.original)
+
+    def mode_for(self, scene: str) -> int:
+        if scene == "identify":
+            value = self.modes.get("bomb")
+            return int(value) if value not in (None, "") else (1 if self.original != 1 else 2)
+        value = self.modes.get(scene)
+        return self.original if value in (None, "") else int(value)
+
+    def _write(self, value: int) -> None:
+        if value == self.current:
+            return
+        if not self.writer.set_mode(value):
+            raise OSError(f"tastatura nu a acceptat efectul {value}")
+        self.current = value
+
+    def send(self, items) -> None:
+        scene = items[0] if items and isinstance(items[0], str) else "identify"
+        self.scene = scene
+        self._write(self.mode_for(scene))
+
+    def preview(self, value: Optional[int]) -> None:
+        """Pentru butonul „Încearcă” din interfață; None = înapoi la efectul tău."""
+        self._write(self.original if value is None else int(value))
+
+    def close(self) -> None:
+        try:
+            self._write(self.original)
+        except Exception as exc:
+            log.warning("Nu am putut pune înapoi efectul tastaturii: %s", exc)
+        finally:
+            self.writer.close()
+
+
+def has_live_channel() -> bool:
+    from .. import hid_win
+
+    return any(_is_stream(i) for i in hid_win.enumerate_interfaces(protocol.VENDOR_ID, protocol.PRODUCT_ID))
+
+
 def from_config(entry: dict) -> Device:
+    if sys.platform == "win32" and not has_live_channel():
+        return ZenkabeatModeKeyboard(entry.get("modes"))
     return ZenkabeatKeyboard(rgb_order=protocol.parse_rgb_order(entry.get("rgb_order", "0,1,2")))
 
 
@@ -156,9 +222,10 @@ def discover() -> List[Found]:
                                config={"type": "zenkabeat", "effect": "keyboard"}))
         elif i.usage_page == protocol.VENDOR_USAGE_PAGE and i.feature_len == protocol.FEATURE_LEN_DATA and not found:
             found.append(Found("zenkabeat", i.product or "ZENKABEAT Keyboard", address="USB",
-                               details=f"fw 0x{i.version:04X}, conectată", controllable=False,
-                               notes=["firmware-ul acestui model nu are canal de culori live (modul Music);"
-                                      " lucrăm la o metodă alternativă"]))
+                               details=f"fw 0x{i.version:04X}, schimbă efectul la evenimente",
+                               config={"type": "zenkabeat", "effect": "keyboard", "modes": {"bomb": 4}},
+                               notes=["modelul tău nu are culori live; AI Colors schimbă efectul tastaturii "
+                                      "(alegi efectele în Dispozitive -> Efectele tastaturii)"]))
     return found
 
 

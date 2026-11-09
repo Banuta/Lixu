@@ -29,6 +29,9 @@ ADJUSTABLE_DPI = 0x2201
 REPORT_RATE = 0x8060
 EXTENDED_REPORT_RATE = 0x8061
 ONBOARD_PROFILES = 0x8100
+COLOR_LED_EFFECTS = 0x8070
+RGB_EFFECTS = 0x8071
+EFFECT_STATIC = 0x0001
 
 ERRORS = {
     1: "unknown", 2: "invalid argument", 3: "out of range", 4: "hardware error",
@@ -98,17 +101,18 @@ def parse_dpi_list(data: bytes) -> List[int]:
 
 
 class HidppDevice:
-    def __init__(self, transport: Transport, index: int = 0xFF, timeout: float = 0.8):
+    def __init__(self, transport: Transport, index: int = 0xFF, timeout: float = 0.8, sw_id: int = SW_ID):
         self.transport = transport
         self.index = index
         self.timeout = timeout
+        self.sw_id = sw_id & 0x0F
         self._features: Dict[int, Optional[int]] = {ROOT: 0}
 
     # ------------------------------------------------------------ transport
 
     def request(self, feature_index: int, function: int, params: bytes = b"",
                 timeout: Optional[float] = None) -> bytes:
-        func = ((function & 0x0F) << 4) | SW_ID
+        func = ((function & 0x0F) << 4) | self.sw_id
         msg = bytes((REPORT_LONG, self.index, feature_index, func)) + bytes(params)
         self.transport.write(msg.ljust(LONG_LEN, b"\x00")[:LONG_LEN])
         deadline = time.monotonic() + (self.timeout if timeout is None else timeout)
@@ -248,3 +252,53 @@ class HidppDevice:
         """host=True: PC-ul controlează DPI/polling; False: profilurile din memoria mouse-ului."""
         if self.has(ONBOARD_PROFILES):
             self.call(ONBOARD_PROFILES, 1, bytes((2 if host else 1,)))
+
+
+    # ------------------------------------------------------------ lumini (fără G HUB)
+
+    def light_feature(self) -> Optional[int]:
+        if self.has(RGB_EFFECTS):
+            return RGB_EFFECTS
+        if self.has(COLOR_LED_EFFECTS):
+            return COLOR_LED_EFFECTS
+        return None
+
+    def light_zones(self) -> List[Tuple[int, int]]:
+        """[(zonă, indexul efectului Static în zona aceea)] – structurile din Solaar."""
+        feat = self.light_feature()
+        zones: List[Tuple[int, int]] = []
+        if feat == RGB_EFFECTS:
+            count = self.call(RGB_EFFECTS, 0, bytes((0xFF, 0xFF, 0x00)))[2]
+            for z in range(count):
+                n = self.call(RGB_EFFECTS, 0, bytes((z, 0xFF, 0x00)))[4]
+                for e in range(n):
+                    info = self.call(RGB_EFFECTS, 0, bytes((z, e, 0x00)))
+                    if (info[2] << 8 | info[3]) == EFFECT_STATIC:
+                        zones.append((z, info[1]))
+                        break
+        elif feat == COLOR_LED_EFFECTS:
+            count = self.call(COLOR_LED_EFFECTS, 0)[0]
+            for z in range(count):
+                n = self.call(COLOR_LED_EFFECTS, 1, bytes((z, 0xFF, 0x00)))[3]
+                for e in range(n):
+                    info = self.call(COLOR_LED_EFFECTS, 2, bytes((z, e, 0x00)))
+                    if (info[2] << 8 | info[3]) == EFFECT_STATIC:
+                        zones.append((z, info[1]))
+                        break
+        return zones
+
+    def take_light_control(self, host: bool = True) -> None:
+        """host=True: PC-ul controlează luminile; False: dispozitivul (profilul lui)."""
+        feat = self.light_feature()
+        if feat == RGB_EFFECTS:
+            self.call(RGB_EFFECTS, 5, bytes((0x01, 0x01 if host else 0x00)))
+        elif feat == COLOR_LED_EFFECTS:
+            self.call(COLOR_LED_EFFECTS, 8, bytes((0x01 if host else 0x00,)))
+
+    def set_zone_static(self, zone: int, effect_index: int, color) -> None:
+        r, g, b = (int(c) & 0xFF for c in color)
+        params = bytes((effect_index, r, g, b, 0, 0, 0, 0, 0, 0, 0))  # index + 10 parametri (culoare, ramp=0)
+        if self.light_feature() == RGB_EFFECTS:
+            self.call(RGB_EFFECTS, 1, bytes((zone,)) + params + b"\x01")
+        else:
+            self.call(COLOR_LED_EFFECTS, 3, bytes((zone,)) + params)

@@ -4,14 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicolors"
-version = "0.3.0"
+version = "0.4.0"
 description = "Lumini CS2 (Game State Integration) pentru tastatură, placă de bază, Logitech, WLED, Govee și Tuya; DPI, polling rate și baterie pentru mouse/căști Logitech"
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = ["tinytuya>=1.13"]
 
 [project.optional-dependencies]
-tuya = ["tinytuya>=1.13"]
 exe = ["pyinstaller>=6"]
 
 [project.scripts]

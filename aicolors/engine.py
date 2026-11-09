@@ -128,6 +128,8 @@ class Engine:
                 if prev is not None:
                     prev.entry = e  # efect/luminozitate noi, aceeași conexiune
                     prev.last = None
+                    if prev.device is not None and hasattr(prev.device, "modes"):
+                        prev.device.modes = dict(e.get("modes") or getattr(prev.device, "DEFAULT_MODES", {}))
                     new_outputs.append(prev)
                 else:
                     new_outputs.append(Output(e))
@@ -149,6 +151,16 @@ class Engine:
                 "leds", "local_key", "version", "rgb_order", "dll")
         return tuple(str(entry.get(k)) for k in keys)
 
+    def keyboard_preview(self, value) -> dict:
+        """Butonul „Încearcă” pentru tastatura ZENKABEAT în modul efecte."""
+        with self.lock:
+            for o in self.outputs:
+                if getattr(o.device, "scene_based", False):
+                    o.device.preview(value)
+                    o.last = None if value is None else o.last  # „Revino” reaplică situația curentă
+                    return {"ok": True, "mode": o.device.current, "original": o.device.original}
+        raise RuntimeError("tastatura ZENKABEAT nu e conectată în modul efecte")
+
     def identify(self, index: int) -> None:
         with self.lock:
             self.outputs[index].identify_until = time.time() + IDENTIFY_SECONDS
@@ -160,6 +172,8 @@ class Engine:
     def frame_for(self, out: Output, st: Optional[GameState], now: float) -> List[RGB]:
         dev = out.device
         assert dev is not None
+        if getattr(dev, "scene_based", False):
+            return ["identify" if now < out.identify_until else effects.scene(st, now)]
         if now < out.identify_until:
             phase = int((IDENTIFY_SECONDS - (out.identify_until - now)) / IDENTIFY_SECONDS * len(IDENTIFY_COLORS))
             return [IDENTIFY_COLORS[min(phase, len(IDENTIFY_COLORS) - 1)]] * dev.led_count
@@ -246,6 +260,9 @@ class Engine:
                     "connected": o.device is not None,
                     "leds": o.device.led_count if o.device else None,
                     "error": o.error,
-                    "colors": [effects.rgb_to_hex(c) for c in (o.last or [])],
+                    "colors": [effects.rgb_to_hex(c) for c in (o.last or []) if isinstance(c, tuple)],
+                    "scene": o.last[0] if o.last and isinstance(o.last[0], str) else None,
+                    "mode": getattr(o.device, "current", None),
+                    "original_mode": getattr(o.device, "original", None),
                 })
             return result

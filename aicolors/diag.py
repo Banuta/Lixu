@@ -41,6 +41,12 @@ def run(out_path: Path) -> Path:
     r = Report()
     r(f"AI Colors {__version__} - diagnostic {time.strftime('%Y-%m-%d %H:%M:%S')}")
     r(f"Python {sys.version.split()[0]} ({platform.architecture()[0]}), {platform.platform()}")
+    try:
+        import tinytuya  # noqa: F401
+
+        r(f"tinytuya: instalat ({getattr(tinytuya, '__version__', '?')})")
+    except ImportError:
+        r("tinytuya: LIPSEȘTE (becurile Tuya nu vor merge)")
 
     if sys.platform != "win32":
         r("Diagnosticul HID funcționează doar pe Windows.")

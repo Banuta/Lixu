@@ -306,3 +306,74 @@ class ConfigTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeModeWriter:
+    def __init__(self, mode=2):
+        self.mode = mode
+        self.calls = []
+        self.closed = False
+
+    def current(self):
+        return self.mode
+
+    def set_mode(self, value):
+        self.calls.append(value)
+        self.mode = value
+        return True
+
+    def close(self):
+        self.closed = True
+
+
+class ZenkabeatModesTest(unittest.TestCase):
+    def test_scene(self):
+        self.assertEqual(effects.scene(None, 0), "menu")
+        st = parse_state(LIVE, now=0)
+        self.assertEqual(effects.scene(st, 0), "ct")
+        bomb = parse_state(dict(LIVE, round={"phase": "live", "bomb": "planted"}), st, now=1)
+        self.assertEqual(effects.scene(bomb, 2), "bomb")
+        low = dict(LIVE, player=dict(LIVE["player"], state={"health": 10}))
+        self.assertEqual(effects.scene(parse_state(low, now=0), 0), "low_hp")
+        dead = dict(LIVE, player=dict(LIVE["player"], state={"health": 0}))
+        self.assertEqual(effects.scene(parse_state(dead, now=0), 0), "dead")
+
+    def test_device_writes_only_on_scene_change_and_restores(self):
+        from aicolors.devices.zenkabeat import ZenkabeatModeKeyboard
+
+        w = FakeModeWriter(mode=2)
+        dev = ZenkabeatModeKeyboard({"ct": 1, "bomb": 4, "dead": ""}, writer=w)
+        dev.send(["menu"])            # efectul tău -> nicio scriere
+        dev.send(["ct"])
+        dev.send(["ct"])
+        dev.send(["dead"])            # gol = efectul tău
+        dev.send(["bomb"])
+        dev.preview(7)
+        dev.preview(None)
+        dev.send(["bomb"])
+        dev.close()
+        self.assertEqual(w.calls, [1, 2, 4, 7, 2, 4, 2])
+        self.assertTrue(w.closed)
+
+    def test_engine_scene_and_rate_limit(self):
+        from aicolors.devices.zenkabeat import ZenkabeatModeKeyboard
+
+        w = FakeModeWriter(mode=2)
+        store = StateStore()
+        eng = Engine([], store)
+        out = __import__("aicolors.engine", fromlist=["Output"]).Output({"type": "zenkabeat"})
+        out.device = ZenkabeatModeKeyboard({"ct": 1, "bomb": 4}, writer=w)
+        eng.outputs = [out]
+        store.update(LIVE, now=0)
+        eng.tick(100.0)
+        self.assertEqual(w.calls, [1])
+        store.update(dict(LIVE, round={"phase": "live", "bomb": "planted"}), now=100)
+        eng.tick(101.0)                       # sub 3 s de la ultima scriere -> așteaptă
+        self.assertEqual(w.calls, [1])
+        eng.tick(103.5)
+        self.assertEqual(w.calls, [1, 4])
+        snap = eng.snapshot()[0]
+        self.assertEqual((snap["scene"], snap["mode"], snap["original_mode"], snap["colors"]), ("bomb", 4, 2, []))
+        self.assertEqual(eng.keyboard_preview(9)["mode"], 9)
+        eng.reconfigure([{"type": "zenkabeat", "modes": {"ct": 3}}])
+        self.assertEqual(out.device.modes, {"ct": 3})

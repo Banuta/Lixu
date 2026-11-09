@@ -130,6 +130,14 @@
         <button class="btn" id="addBtn">+ Adaugă manual</button>
       </div>
     </div>
+    <div class="card" style="margin-top:16px" id="kbCard" hidden>
+      <h2>Efectele tastaturii ZENKABEAT <span class="sub" id="kbNow"></span></h2>
+      <p class="muted" style="font-size:12px;margin-top:0">Tastatura ta nu are culori live, așa că AI Colors îi schimbă
+        efectul după situația din joc. Scrie numărul efectului (cel pe care îl schimbi cu Fn) sau lasă gol pentru
+        efectul tău. Apasă „Încearcă” ca să vezi cum arată, apoi Salvează.</p>
+      <table><tbody id="kbModes"></tbody></table>
+      <div class="row"><button class="btn" id="kbRestore">Revino la efectul meu</button></div>
+    </div>
     <div class="card" style="margin-top:16px">
       <h2>Scanează <span class="sub">tastatură, placă de bază, memorii RAM, Logitech, WLED, Govee, Tuya, OpenRGB</span></h2>
       <div class="row">
@@ -190,13 +198,36 @@
         <p class="muted" style="font-size:12px">Modificările de aici cer repornirea aplicației.</p>
       </div>
       <div class="card">
+        <h2>OpenRGB <span class="sub">placă de bază și memorii RAM</span></h2>
+        <div class="row"><label>Stare</label><span id="orgbStatus" class="muted">...</span></div>
+        <div class="row">
+          <button class="btn" id="orgbInstall">Descarcă OpenRGB</button>
+          <button class="btn primary" id="orgbStart">Pornește OpenRGB (administrator)</button>
+        </div>
+        <div class="row"><label style="min-width:0"><input type="checkbox" id="orgbAuto"> pornește OpenRGB odată cu AI Colors</label></div>
+        <p class="muted" style="font-size:12px">Se descarcă doar din sursele oficiale (Codeberg / openrgb.org). Windows îți cere
+          confirmarea de administrator: e nevoie pentru placa de bază și memorii.</p>
+      </div>
+      <div class="card">
+        <h2>Tuya / Smart Life <span class="sub">cheile becurilor</span></h2>
+        <p class="muted" style="font-size:12px;margin-top:0">O singură dată: cont gratuit pe iot.tuya.com → Cloud → Create
+          Cloud Project (Smart Home, data center Central Europe) → Devices → Link App Account (scanezi QR-ul cu Smart Life).
+          Din Overview copiezi Access ID și Access Secret aici. Cheia și secretul nu se salvează.</p>
+        <div class="row"><label>Regiune</label><select id="tuyaRegion"><option value="eu">Europa</option>
+          <option value="us">America</option><option value="cn">China</option><option value="in">India</option></select></div>
+        <div class="row"><label>Access ID</label><input id="tuyaKey" style="flex:1"></div>
+        <div class="row"><label>Access Secret</label><input id="tuyaSecret" type="password" style="flex:1"></div>
+        <div class="row"><button class="btn primary" id="tuyaFetch">Ia cheile din contul Tuya</button></div>
+        <div id="tuyaResult" class="muted" style="font-size:12px"></div>
+      </div>
+      <div class="card">
         <h2>Config</h2>
         <p class="muted" id="cfgPath"></p>
         <details><summary>Editează JSON-ul direct</summary>
           <textarea id="rawJson" style="min-height:260px"></textarea>
           <div class="row"><button class="btn" id="rawApply">Aplică JSON</button></div>
         </details>
-        <div class="row" style="margin-top:14px"><button class="btn danger" id="quitBtn">Oprește aicolors</button>
+        <div class="row" style="margin-top:14px"><button class="btn danger" id="quitBtn">Oprește AI Colors</button>
           <span class="muted">luminile revin la efectele lor</span></div>
       </div>
     </div>
@@ -232,6 +263,8 @@ const LABELS = {
             bomb: "Bombă", fire: "Foc", dead: "Mort"},
   effects: {keyboard: "Tastatură (complet)", ambient: "Ambient (echipă + evenimente)", team: "Doar echipa",
             health: "Viață", armor: "Armură", ammo: "Gloanțe"},
+  scenes: {menu: "Meniu / desktop", ct: "Joc ca CT", t: "Joc ca T", bomb: "Bombă plantată", dead: "Mort",
+           low_hp: "Viață sub 25"},
   sims: {menu: "Meniu", ct: "CT full HP", t_low: "T, HP mic, fără gloanțe", bomb: "Bombă plantată",
          flash: "Flash", fire: "Foc", dead: "Mort", win: "Rundă câștigată"},
 };
@@ -240,7 +273,7 @@ const LABELS = {
 document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("active", x === b));
   document.querySelectorAll("main section").forEach(s => s.classList.toggle("active", s.id === b.dataset.tab));
-  if (b.dataset.tab === "settings") $("#rawJson").value = JSON.stringify(cfg, null, 2);
+  if (b.dataset.tab === "settings") { $("#rawJson").value = JSON.stringify(cfg, null, 2); openrgb("status").catch(() => {}); }
 });
 
 // ------------------------------------------------------------------ LIVE
@@ -320,6 +353,38 @@ function renderDevices() {
       <tr class="json" data-i="${i}" hidden><td colspan="7"><textarea data-f="json">${esc(JSON.stringify(d, null, 2))}</textarea></td></tr>`;
   }).join("");
 }
+
+function kbIndex() { return cfg.devices.findIndex(d => d.type === "zenkabeat"); }
+function renderKeyboardModes() {
+  const i = kbIndex(), snap = state ? state.devices.find(d => d.type === "zenkabeat") : null;
+  const isModes = snap && snap.original_mode != null;
+  $("#kbCard").hidden = i < 0 || (snap && !isModes && snap.connected);
+  if (i < 0) return;
+  $("#kbNow").textContent = isModes ? `efect acum: ${snap.mode}, al tău: ${snap.original_mode}` +
+    (snap.scene ? `, situație: ${LABELS.scenes[snap.scene] || snap.scene}` : "") : "";
+  if (document.activeElement && document.activeElement.closest("#kbModes")) return;
+  const modes = cfg.devices[i].modes || {};
+  $("#kbModes").innerHTML = meta.scenes.map(sc => `<tr data-scene="${sc}">
+    <td style="width:180px">${esc(LABELS.scenes[sc] || sc)}</td>
+    <td><input type="number" min="0" max="32" value="${modes[sc] ?? ""}" placeholder="al tău" style="width:90px"></td>
+    <td><button class="btn small" data-try>Încearcă</button></td></tr>`).join("");
+}
+$("#kbModes").addEventListener("input", e => {
+  const sc = e.target.closest("tr").dataset.scene, i = kbIndex();
+  const modes = Object.assign({}, cfg.devices[i].modes || {});
+  if (e.target.value === "") delete modes[sc]; else modes[sc] = Math.max(0, Math.min(32, +e.target.value));
+  cfg.devices[i].modes = modes; markDirty();
+});
+$("#kbModes").addEventListener("click", async e => {
+  if (!e.target.matches("[data-try]")) return;
+  const v = e.target.closest("tr").querySelector("input").value;
+  try { const r = await api("/api/kbmode", {value: v === "" ? null : +v}); toast(`Efect ${r.mode} pe tastatură`); }
+  catch (err) { toast("Eroare: " + err.message, 5000); }
+});
+$("#kbRestore").onclick = async () => {
+  try { await api("/api/kbmode", {value: null}); toast("Efectul tău e înapoi"); }
+  catch (err) { toast("Eroare: " + err.message, 5000); }
+};
 
 $("#devTable").addEventListener("input", e => {
   const tr = e.target.closest("tr"), i = +tr.dataset.i, f = e.target.dataset.f;
@@ -441,6 +506,7 @@ function renderSettings() {
   $("#setPort").value = cfg.gsi.port; $("#setToken").value = cfg.gsi.token || ""; $("#setUiPort").value = cfg.ui_port;
   $("#setPerEnabled").checked = cfg.peripherals.enabled !== false;
   $("#setPerPoll").value = cfg.peripherals.poll_seconds || 60;
+  $("#orgbAuto").checked = !!(cfg.openrgb && cfg.openrgb.autostart);
   $("#cfgPath").textContent = cfg.path ? "Fișier: " + cfg.path : "Fișierul aicolors.json se creează la prima salvare.";
 }
 const bind = (id, fn) => $(id).addEventListener("input", e => { fn(e.target); markDirty(); });
@@ -456,6 +522,34 @@ $("#rawApply").onclick = () => {
   try { cfg = Object.assign(JSON.parse($("#rawJson").value), {path: cfg.path}); renderAll(); markDirty(); toast("Aplicat; apasă Salvează"); }
   catch (err) { toast("JSON invalid: " + err.message, 5000); }
 };
+async function openrgb(action) {
+  try {
+    const r = await api("/api/openrgb", {action});
+    $("#orgbStatus").innerHTML = (r.running ? `<span class="pill ok">serverul rulează</span>` : `<span class="pill bad">serverul nu rulează</span>`) +
+      " " + (r.installed ? `<span class="muted">${esc(r.installed)}</span>` : `<span class="muted">nedescărcat</span>`);
+    return r;
+  } catch (err) { $("#orgbStatus").textContent = "Eroare: " + err.message; throw err; }
+}
+$("#orgbInstall").onclick = async () => {
+  $("#orgbStatus").textContent = "descarc... (poate dura un minut)";
+  try { await openrgb("install"); toast("OpenRGB descărcat"); } catch {}
+};
+$("#orgbStart").onclick = async () => {
+  try { await openrgb("start"); toast("Confirmă în fereastra Windows; apoi Dispozitive -> Scanează");
+        setTimeout(() => openrgb("status"), 6000); } catch {}
+};
+bind("#orgbAuto", t => cfg.openrgb = Object.assign({}, cfg.openrgb, {autostart: t.checked}));
+$("#tuyaFetch").onclick = async () => {
+  $("#tuyaResult").textContent = "mă conectez la Tuya...";
+  try {
+    const r = await api("/api/tuya/keys", {region: $("#tuyaRegion").value, api_key: $("#tuyaKey").value,
+                                           api_secret: $("#tuyaSecret").value});
+    $("#tuyaSecret").value = "";
+    $("#tuyaResult").innerHTML = `Am luat cheile pentru ${r.devices.length} dispozitive: ` +
+      r.devices.map(d => esc(d.name || d.id)).join(", ") + ". Acum: Dispozitive -> Scanează -> + Adaugă.";
+  } catch (err) { $("#tuyaResult").textContent = "Eroare: " + err.message; }
+};
+
 $("#installCfg").onclick = async () => {
   const r = await api("/api/install-cfg", {cs2_dir: $("#cs2Dir").value.trim() || null});
   $("#installResult").innerHTML = r.ok ? "Scris: " + r.written.map(esc).join("<br>") + "<br>Repornește CS2."
@@ -478,7 +572,7 @@ document.querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
 window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
 
 // ------------------------------------------------------------------ pornire + actualizare
-function renderAll() { renderDevices(); renderPalette(); renderSettings(); }
+function renderAll() { renderDevices(); renderKeyboardModes(); renderPalette(); renderSettings(); }
 
 async function poll() {
   if (document.visibilityState === "visible") {
@@ -488,6 +582,7 @@ async function poll() {
       renderPreviews(state.devices);
       renderPeripherals(state.peripherals);
       if ($("#devices").classList.contains("active") && !dirty && !document.activeElement.closest("#devTable")) renderDevices();
+      if ($("#devices").classList.contains("active") && !dirty) renderKeyboardModes();
     } catch { $("#gsiText").textContent = "AI Colors nu răspunde"; $("#gsiDot").classList.remove("on"); }
   }
   setTimeout(poll, $("#live").classList.contains("active") ? 250 : 1500);

@@ -25,7 +25,32 @@ from .base import Device, DeviceError, Found, average
 
 log = logging.getLogger(__name__)
 
-DEVICES_JSON_PATHS = [Path.cwd() / "devices.json", Path.home() / "devices.json"]
+def _devices_json_paths() -> List[Path]:
+    from ..config import user_config_path
+
+    return [user_config_path().parent / "devices.json", Path.cwd() / "devices.json", Path.home() / "devices.json"]
+
+
+REGIONS = {"eu": "Europa", "us": "America", "cn": "China", "in": "India"}
+
+
+def fetch_cloud_keys(region: str, api_key: str, api_secret: str, device_ids: Optional[List[str]] = None) -> Path:
+    """Ia cheile locale din contul Tuya IoT (ca `tinytuya wizard`) și scrie devices.json
+    în folderul aplicației. Cheia/secretul API NU se salvează."""
+    tinytuya = _tinytuya()
+    cloud = tinytuya.Cloud(apiRegion=region, apiKey=api_key, apiSecret=api_secret,
+                           apiDeviceID=",".join(device_ids or []) or None)
+    if getattr(cloud, "error", None):
+        raise DeviceError(f"Tuya Cloud: {cloud.error}")
+    devices = cloud.getdevices(verbose=False)
+    if isinstance(devices, dict):  # tinytuya întoarce un dict cu eroarea
+        raise DeviceError(f"Tuya Cloud: {devices.get('Payload') or devices.get('Error') or devices}")
+    keep = [{k: d.get(k) for k in ("id", "name", "key", "ip", "version", "product_name", "mac")}
+            for d in devices if isinstance(d, dict) and d.get("id")]
+    path = _devices_json_paths()[0]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(keep, indent=2, ensure_ascii=False), encoding="utf-8")
+    return path
 
 
 def _tinytuya():
@@ -38,7 +63,7 @@ def _tinytuya():
 
 def wizard_devices(path: Optional[str] = None) -> Dict[str, Dict]:
     """Dispozitivele din devices.json (creat de `python -m tinytuya wizard`), după id."""
-    for p in ([Path(path)] if path else DEVICES_JSON_PATHS):
+    for p in ([Path(path)] if path else _devices_json_paths()):
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -110,6 +135,6 @@ def discover(timeout: float = 6.0) -> List[Found]:
                   config={"type": "tuya", "id": dev_id, "host": ip, "version": float(d.get("version") or 3.3),
                           "name": info.get("name"), "effect": "ambient"})
         if not info.get("key"):
-            f.notes.append("lipsește local key: rulează `python -m tinytuya wizard` în folderul aplicației")
+            f.notes.append("lipsește cheia locală: Setări -> Tuya -> „Ia cheile din contul Tuya”")
         found.append(f)
     return found

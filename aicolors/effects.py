@@ -174,6 +174,24 @@ def is_animating(st: Optional[GameState], now: float) -> bool:
     return False
 
 
+# ------------------------------------------------- situații (tastatura fără canal live)
+
+SCENES = ["menu", "ct", "t", "bomb", "dead", "low_hp"]
+
+
+def scene(st: Optional[GameState], now: float) -> str:
+    """Situația din joc, pentru dispozitivele care pot doar schimba efectul (ZENKABEAT)."""
+    if st is None or not st.in_game:
+        return "menu"
+    if st.bomb == "planted":
+        return "bomb"
+    if not st.alive:
+        return "dead"
+    if st.health <= 25:
+        return "low_hp"
+    return "ct" if st.team == "CT" else "t"
+
+
 # ------------------------------------------------------- efecte de bandă
 
 def _base(st: GameState) -> RGB:

@@ -1,4 +1,11 @@
-"""Logitech G (mouse G502, căști G733 etc.) prin Logitech LED SDK din G HUB.
+"""Logitech G (mouse G502, căști G733 etc.): lumini prin HID++ direct (fără G HUB)
+sau, dacă G HUB rulează, prin Logitech LED SDK din G HUB.
+
+Implicit ("backend": "auto"): dacă G HUB e pornit folosim SDK-ul lui (ca să nu ne
+certăm pe lumini); altfel vorbim direct cu mouse-ul/căștile prin HID++ 2.0
+(feature-urile 0x8071 RGB_EFFECTS / 0x8070 COLOR_LED_EFFECTS, ca Solaar).
+
+Varianta cu G HUB:
 
 G HUB înregistrează DLL-ul SDK-ului (sdk_legacy_led_x64.dll) sub CLSID-ul de mai jos;
 îl încărcăm direct cu ctypes. Cerințe:
@@ -175,9 +182,73 @@ class LogitechDevice(Device):
         self.sdk.release()
 
 
+class LogitechHidppLight(Device):
+    """Luminile unui mouse/căști Logitech direct prin HID++ (nu are nevoie de G HUB)."""
+
+    kind = "logitech"
+    min_interval = 0.08
+    keepalive = 5.0
+    SW_ID = 0x0C  # diferit de monitorul de baterie, ca răspunsurile să nu se încurce
+
+    def __init__(self, target: str = "mouse", name: Optional[str] = None):
+        if sys.platform != "win32":
+            raise DeviceError("HID++ direct e implementat doar pe Windows")
+        from ..peripherals.hidpp import HidppDevice
+        from ..peripherals.logitech import _classify, find_endpoints
+
+        chosen = None
+        for ep in find_endpoints():
+            dev = HidppDevice(ep.stream, ep.device.index, sw_id=self.SW_ID)
+            try:
+                label = dev.name() or ep.product
+                ok = target in ("all", _classify(dev, label)) and dev.light_feature() is not None
+            except Exception:
+                ok = False
+            if ok and chosen is None:
+                chosen = (ep, dev, label)
+            else:
+                ep.stream.close()
+        if chosen is None:
+            raise DeviceError(f"niciun Logitech „{target}” cu lumini controlabile prin HID++ (e pornit?)")
+        self.endpoint, self.dev, label = chosen
+        try:
+            self.zones = self.dev.light_zones()
+            if not self.zones:
+                raise DeviceError(f"{label}: nu am găsit efectul Static în zonele de lumină")
+            try:
+                self.dev.take_light_control(True)
+            except Exception as exc:  # unele modele nu au comanda; merge și fără
+                log.debug("take_light_control: %s", exc)
+        except Exception:
+            self.endpoint.stream.close()
+            raise
+        super().__init__(name or f"{label} (direct)", len(self.zones))
+        self._sent: List[Optional[tuple]] = [None] * len(self.zones)
+        log.info("Logitech HID++: %s, %d zone de lumină", label, len(self.zones))
+
+    def send(self, colors: Sequence[RGB]) -> None:
+        for i, (zone, effect_index) in enumerate(self.zones):
+            c = tuple(int(v) for v in colors[min(i, len(colors) - 1)])
+            if c != self._sent[i]:
+                self.dev.set_zone_static(zone, effect_index, c)
+                self._sent[i] = c
+
+    def close(self) -> None:
+        try:
+            self.dev.take_light_control(False)
+        except Exception:
+            pass
+        self.endpoint.stream.close()
+
+
 def from_config(entry: dict) -> Device:
-    return LogitechDevice(entry.get("target", "all"), entry.get("zones", (0, 1)), entry.get("dll"),
-                          entry.get("name"))
+    backend = entry.get("backend", "auto")
+    target = entry.get("target", "all")
+    if backend == "auto":
+        backend = "ghub" if (find_dll(entry.get("dll")) and _ghub_running()) else "hidpp"
+    if backend == "hidpp":
+        return LogitechHidppLight("mouse" if target == "all" else target, entry.get("name"))
+    return LogitechDevice(target, entry.get("zones", (0, 1)), entry.get("dll"), entry.get("name"))
 
 
 def _ghub_running() -> Optional[bool]:
@@ -217,13 +288,13 @@ def discover() -> List[Found]:
     found = []
     for pid, ((target, label), i) in seen.items():
         f = Found("logitech", label, address=f"USB {LOGITECH_VID:04X}:{pid:04X}",
-                  details=i.product or "", controllable=dll is not None,
-                  config={"type": "logitech", "target": target, "name": label,
+                  details=i.product or "", controllable=True,
+                  config={"type": "logitech", "target": target, "name": label, "backend": "auto",
                           "effect": "ambient" if target == "mouse" else "health"})
-        if dll is None:
-            f.notes.append("Nu găsesc DLL-ul LED SDK: instalează Logitech G HUB")
-        elif ghub is False:
-            f.notes.append("G HUB nu rulează: pornește-l (SDK-ul are nevoie de el)")
-        f.notes.append("în G HUB activează „Allow games & applications to control my illumination”")
+        if ghub and dll:
+            f.notes.append("G HUB rulează: luminile merg prin el (activează „Allow games & applications "
+                           "to control my illumination”). Fără G HUB merg direct.")
+        else:
+            f.notes.append("fără G HUB: luminile merg direct prin HID++")
         found.append(f)
     return found

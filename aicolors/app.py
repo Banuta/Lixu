@@ -103,6 +103,8 @@ class App:
     # ------------------------------------------------------------ ciclu de viață
 
     def start(self, ui: bool = True) -> None:
+        if self.cfg.openrgb.get("autostart") and not self.dry_run:
+            threading.Thread(target=self._autostart_openrgb, name="openrgb", daemon=True).start()
         self.gsi.start()
         log.info("Server GSI pe http://%s:%d/", self.cfg.host, self.gsi.port)
         if self.peripherals:
@@ -114,6 +116,39 @@ class App:
             log.info("Interfață: %s", self.ui_url)
         self._engine_thread = threading.Thread(target=self.engine.run, name="engine", daemon=True)
         self._engine_thread.start()
+
+    def _autostart_openrgb(self) -> None:
+        from . import openrgb_setup
+
+        try:
+            if not openrgb_setup.server_running() and openrgb_setup.find_exe():
+                openrgb_setup.start()
+        except Exception as exc:
+            log.warning("OpenRGB: %s", exc)
+
+    def openrgb(self, action: str) -> Dict[str, Any]:
+        from . import openrgb_setup
+
+        if action == "install":
+            openrgb_setup.install()
+        elif action == "start":
+            openrgb_setup.start()
+        return openrgb_setup.status()
+
+    def tuya_keys(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        from .devices import tuya
+
+        ids = [d.get("id") for d in self.cfg.devices if d.get("type") == "tuya" and d.get("id")]
+        ids += [i for i in (data.get("device_ids") or []) if i]
+        path = tuya.fetch_cloud_keys(data.get("region", "eu"), data["api_key"].strip(),
+                                     data["api_secret"].strip(), ids)
+        found = tuya.wizard_devices(str(path))
+        self.engine.reconfigure(self.cfg.active_devices)
+        with self.engine.lock:  # becurile deconectate încearcă imediat cu cheile noi
+            for o in self.engine.outputs:
+                if o.device is None:
+                    o.next_retry = 0.0
+        return {"ok": True, "path": str(path), "devices": [{"id": k, "name": v.get("name")} for k, v in found.items()]}
 
     @property
     def ui_url(self) -> str:
@@ -161,6 +196,7 @@ class App:
             "simulations": list(SIMULATIONS),
             "default_palette": DEFAULT_PALETTE,
             "keys": [{"name": k.name, "led": k.led} for k in layout.KEYS],
+            "scenes": effects.SCENES,
             "dry_run": self.dry_run,
         }
 
@@ -279,6 +315,9 @@ def make_ui_handler(app: App):
                 "/api/simulate": lambda: app.simulate(data.get("preset", "")),
                 "/api/install-cfg": lambda: app.install_cfg(data.get("cs2_dir")),
                 "/api/mouse": lambda: app.mouse(data),
+                "/api/openrgb": lambda: app.openrgb(data.get("action", "status")),
+                "/api/tuya/keys": lambda: app.tuya_keys(data),
+                "/api/kbmode": lambda: app.engine.keyboard_preview(data.get("value")),
                 "/api/quit": lambda: (threading.Timer(0.3, app.engine.stop).start(), {"ok": True})[1],
                 "/api/peripherals/refresh": lambda: (app.peripherals and app.peripherals.refresh(), {"ok": True})[1],
             }

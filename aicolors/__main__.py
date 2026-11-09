@@ -283,6 +283,20 @@ def cmd_kbtest(args) -> int:
     return run(args.step, args.value)
 
 
+def cmd_openrgb(args) -> int:
+    from . import openrgb_setup
+
+    if args.action == "install":
+        print("Descarc OpenRGB din sursa oficială...")
+        print(f"Instalat: {openrgb_setup.install()}")
+    elif args.action == "start":
+        openrgb_setup.start()
+        print("Am cerut pornirea OpenRGB ca administrator (confirmă în fereastra Windows).")
+    st = openrgb_setup.status()
+    print(f"OpenRGB: {st['installed'] or 'nedescărcat'}; server {'pornit' if st['running'] else 'oprit'}")
+    return 0
+
+
 def cmd_diag(args) -> int:
     from .diag import run
 
@@ -317,7 +331,7 @@ def cmd_probe(args) -> int:
     return 0
 
 
-COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "battery", "mouse", "probe", "diag", "kbtest")
+COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "battery", "mouse", "probe", "diag", "kbtest", "openrgb")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -386,6 +400,10 @@ def build_parser() -> argparse.ArgumentParser:
     kt.add_argument("value", nargs="?", type=int, default=-1, help="pentru mode: numărul efectului")
     kt.set_defaults(func=cmd_kbtest)
 
+    og = sub.add_parser("openrgb", help="descarcă / pornește OpenRGB (placă de bază, memorii RAM)")
+    og.add_argument("action", choices=["status", "install", "start"])
+    og.set_defaults(func=cmd_openrgb)
+
     dg = sub.add_parser("diag", help="diagnostic complet în diagnostic.txt")
     dg.add_argument("--out", default="diagnostic.txt")
     dg.set_defaults(func=cmd_diag)
@@ -403,7 +421,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     level = logging.DEBUG if args.verbose else logging.INFO
     fmt = "%(asctime)s %(levelname)s %(message)s"
-    if sys.stderr is None:  # AIColors.exe fără consolă: log în %APPDATA%/aicolors/aicolors.log
+    if sys.stdout is None or sys.stderr is None:  # AIColors.exe fără consolă
+        import os
+
+        sys.stdout = sys.stdout or open(os.devnull, "w", encoding="utf-8")
+        sys.stderr = sys.stderr or open(os.devnull, "w", encoding="utf-8")
         log_path = configmod.user_config_path().parent / "aicolors.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         logging.basicConfig(level=level, format=fmt, filename=str(log_path), encoding="utf-8")
