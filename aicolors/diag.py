@@ -106,6 +106,18 @@ def run(out_path: Path) -> Path:
 
     r.section("Tastatura ZENKABEAT", keyboard)
 
+    def keyboard_table() -> None:
+        from .devices.zenkabeat import read_table
+
+        data = read_table()
+        r(f"Răspuns ({len(data)} bytes): {_hex(data, 64)}")
+        ok = len(data) > 2 and data[1] == protocol.CMD_READ and data[2] == protocol.TABLE_RGB
+        r("Protocolul de citire CONFIRMAT (88 B8)." if ok else "Răspunsul nu începe cu 88 B8: protocolul diferă.")
+        body = data[8:8 + 126 * 3]
+        r("Primele culori: " + " ".join(f"#{body[i]:02x}{body[i+1]:02x}{body[i+2]:02x}" for i in range(0, 30, 3)))
+
+    r.section("Tabela de culori a tastaturii (doar citire)", keyboard_table)
+
     def board() -> None:
         from .discovery.motherboard import board_info
 

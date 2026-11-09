@@ -37,7 +37,9 @@ KNOWN_PIDS = {
     0xC08D: ("mouse", "G502 LIGHTSPEED (pe cablu)"),
     0xC08B: ("mouse", "G502 HERO"),
     0xC332: ("mouse", "G502 Proteus Spectrum"),
+    0xC547: ("mouse", "Receiver LIGHTSPEED (G502 X PLUS ...)"),
     0x0AB5: ("headset", "G733 LIGHTSPEED"),
+    0x0B1F: ("headset", "G733 LIGHTSPEED"),
 }
 
 
@@ -64,6 +66,7 @@ def candidate_dlls(extra: Optional[str] = None) -> List[str]:
     out = [p for p in (extra, os.environ.get("AICOLORS_LOGI_DLL")) if p]
     out += _registry_dll_paths()
     out += [
+        os.path.join(pf, "LGHUB", "sdks", f"sdk_legacy_led_{arch}.dll"),
         os.path.join(pf, "LGHUB", f"sdk_legacy_led_{arch}.dll"),
         os.path.join(pf, "Logitech Gaming Software", "SDK", "LED", arch, "LogitechLed.dll"),
         str(Path.cwd() / "LogitechLedEnginesWrapper.dll"),

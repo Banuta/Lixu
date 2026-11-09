@@ -49,6 +49,11 @@ class ZenkabeatKeyboard(KeyboardLayout, Device):
         self.rgb_order = tuple(rgb_order)
         interfaces = hid_win.enumerate_interfaces(vendor_id, product_id)
         stream = [i for i in interfaces if _is_stream(i)]
+        if not stream and any(i.feature_len == protocol.FEATURE_LEN_DATA for i in interfaces):
+            raise KeyboardNotFound(
+                "Tastatura e conectată, dar firmware-ul ei nu are canal de culori live (modul Music). "
+                "Dezactiveaz-o deocamdată în Dispozitive; lucrăm la o metodă alternativă."
+            )
         if not stream:
             found = ", ".join(
                 f"page=0x{i.usage_page:04X} usage=0x{i.usage:02X} feature={i.feature_len}"
@@ -149,4 +154,24 @@ def discover() -> List[Found]:
             found.append(Found("zenkabeat", i.product or "ZENKABEAT Keyboard", address="USB",
                                details=f"fw 0x{i.version:04X}, 126 LED-uri",
                                config={"type": "zenkabeat", "effect": "keyboard"}))
+        elif i.usage_page == protocol.VENDOR_USAGE_PAGE and i.feature_len == protocol.FEATURE_LEN_DATA and not found:
+            found.append(Found("zenkabeat", i.product or "ZENKABEAT Keyboard", address="USB",
+                               details=f"fw 0x{i.version:04X}, conectată", controllable=False,
+                               notes=["firmware-ul acestui model nu are canal de culori live (modul Music);"
+                                      " lucrăm la o metodă alternativă"]))
     return found
+
+
+def read_table(table: int = protocol.TABLE_RGB) -> bytes:
+    """Citește o tabelă din tastatură (doar citire, nu modifică nimic)."""
+    from .. import hid_win
+
+    ifaces = hid_win.enumerate_interfaces(protocol.VENDOR_ID, protocol.PRODUCT_ID)
+    cmd = next(i for i in ifaces if i.usage_page == protocol.VENDOR_USAGE_PAGE
+               and i.feature_len == protocol.FEATURE_LEN_CMD)
+    data = next(i for i in ifaces if i.usage_page == protocol.VENDOR_USAGE_PAGE
+                and i.feature_len == protocol.FEATURE_LEN_DATA)
+    with hid_win.HidHandle(cmd) as hc, hid_win.HidHandle(data) as hd:
+        hc.set_feature(protocol.read_request(table))
+        time.sleep(0.02)
+        return hd.get_feature(protocol.DATA_REPORT_ID, protocol.FEATURE_LEN_DATA)

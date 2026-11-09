@@ -35,6 +35,21 @@ LED_COLS = 21
 LED_COUNT = LED_ROWS * LED_COLS  # 126
 FRAME_DATA_LEN = LED_COUNT * 3  # 378
 
+# Comenzi pe interfețele „hCmd” (report 5) și „hDevice” (report 6), din
+# CDrv916RGB::GetLedRgbTab (0x41b210) și SetLedRgbTab (0x41b160):
+#   citire: SetFeature(hCmd, 05 88 <tabel> 00 00 00 00), apoi GetFeature(hDevice, 06 ..., 1032)
+#   scriere: SetFeature(hDevice, 06 08 <tabel> 00 40 00 00 00 + 1024 bytes)
+CMD_REPORT_ID = 0x05
+DATA_REPORT_ID = 0x06
+CMD_READ = 0x88
+CMD_WRITE = 0x08
+TABLE_RGB = 0xB8
+
+
+def read_request(table: int) -> bytes:
+    return bytes((CMD_REPORT_ID, CMD_READ, table, 0, 0, 0, 0))
+
+
 STREAM_REPORT_ID = 0x08
 # Header-ul exact folosit de CDrv916RGB::SendMusicData (0x41b440).
 STREAM_HEADER = bytes((STREAM_REPORT_ID, 0x0A, 0x7A, 0x01))
