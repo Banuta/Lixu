@@ -170,11 +170,15 @@ class ZenkabeatModeKeyboard(Device):
         self.palette_now: Optional[bytes] = None
         self.original_palette: Optional[bytes] = None
         if auto_colors:
-            from ..kbmode import palette_groups
+            from ..kbmode import load_original_palette, palette_groups
 
-            self.original_palette = writer.read_palette()
-            self.palette_now = self.original_palette
-            self.groups = palette_groups(self.original_palette)
+            current = writer.read_palette()
+            self.original_palette = load_original_palette(current)
+            self.palette_now = current
+            self.groups = palette_groups(current)
+            if self.original == self.static_mode and self.original_palette != current:
+                # pornit după o închidere forțată: efectul fix a rămas de la noi; revenim la respirație
+                self.original = 2
         log.info("Tastatură: %s; efectul tău: %d", "culori automate" if auto_colors else "efecte", self.original)
 
     @staticmethod

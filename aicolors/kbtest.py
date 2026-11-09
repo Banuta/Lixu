@@ -275,6 +275,21 @@ def run(step: str, value: int = -1) -> int:
     if sys.platform != "win32":
         print("Testul funcționează doar pe Windows.")
         return 1
+    if step == "palette-reset":
+        from .kbmode import (KbModeWriter, factory_palette, original_palette_path, palette_groups)
+
+        w = KbModeWriter()
+        try:
+            cur = w.read_palette()
+            pal = factory_palette(cur, palette_groups(cur))
+            ok = w.write_palette(pal)
+            w.set_mode(w.current(), force=True)  # reaplică efectul ca să citească paleta
+            original_palette_path().parent.mkdir(parents=True, exist_ok=True)
+            original_palette_path().write_bytes(pal)
+            print("Culorile din fabrică sunt înapoi." if ok else "Tastatura nu a acceptat paleta.")
+        finally:
+            w.close()
+        return 0
     if step == "game":
         return game_dump()
     if step == "color":

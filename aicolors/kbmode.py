@@ -116,6 +116,53 @@ def palette_groups(table: bytes) -> int:
     return n
 
 
+# Paleta din fabrică (citită de pe tastatura utilizatorului înainte de orice scriere):
+# fiecare efect are aceleași 7 culori.
+FACTORY_GROUP = bytes.fromhex("ff0000" "ffff00" "00ff00" "00ffff" "0000ff" "ff00ff" "ffffff")
+
+
+def is_uniform(table: bytes, groups: int) -> bool:
+    """Toate culorile din palete sunt la fel (adică paleta a rămas de la AI Colors, nu e a ta)."""
+    if groups == 0:
+        return False
+    first = table[:3]
+    return table[:groups * GROUP] == first * (groups * 7)
+
+
+def factory_palette(table: bytes, groups: int) -> bytes:
+    out = bytearray(table)
+    for g in range(groups):
+        out[g * GROUP:(g + 1) * GROUP] = FACTORY_GROUP
+    return bytes(out)
+
+
+def original_palette_path():
+    from .config import user_config_path
+
+    return user_config_path().parent / "kb_original_palette.bin"
+
+
+def load_original_palette(current: bytes) -> bytes:
+    """Paleta „ta”: salvată o singură dată și refolosită, ca o paletă rămasă de la o închidere
+    forțată (ex. toată roșie) să nu fie luată drept a ta. Fără fișier și cu paleta uniformă:
+    paleta din fabrică."""
+    path = original_palette_path()
+    try:
+        saved = path.read_bytes()
+        if len(saved) == PALETTE_LEN:
+            return saved
+    except OSError:
+        pass
+    groups = palette_groups(current)
+    original = factory_palette(current, groups) if is_uniform(current, groups) else current
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(original)
+    except OSError:
+        pass
+    return original
+
+
 def fill_palette(table: bytes, color, groups: int) -> bytes:
     """Toate cele 7 culori ale primelor `groups` efecte = `color`; restul tabelei neatins."""
     out = bytearray(table)

@@ -566,6 +566,23 @@ class FakePaletteWriter(FakeModeWriter):
 
 
 class ZenkabeatAutoColorsTest(unittest.TestCase):
+    def setUp(self):
+        import os
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.old = os.environ.get("XDG_CONFIG_HOME"), os.environ.get("APPDATA")
+        os.environ["XDG_CONFIG_HOME"] = os.environ["APPDATA"] = self.tmp.name
+
+    def tearDown(self):
+        import os
+
+        for k, v in zip(("XDG_CONFIG_HOME", "APPDATA"), self.old):
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        self.tmp.cleanup()
+
     def test_scene_colors_and_restore(self):
         from aicolors.devices.zenkabeat import ZenkabeatModeKeyboard
 
@@ -589,3 +606,25 @@ class ZenkabeatAutoColorsTest(unittest.TestCase):
         dev.close()                              # la închidere: totul înapoi
         self.assertEqual(w.palette, orig)
         self.assertEqual(w.mode, 2)
+
+
+class KbOriginalPaletteTest(unittest.TestCase):
+    def test_leftover_red_is_not_taken_as_original(self):
+        import os
+
+        from aicolors import kbmode
+
+        red = (b"\xff\x00\x00" * 7) * 20 + bytes(1024 - 420)
+        with tempfile.TemporaryDirectory() as tmp:
+            old = os.environ.get("XDG_CONFIG_HOME"), os.environ.get("APPDATA")
+            os.environ["XDG_CONFIG_HOME"] = os.environ["APPDATA"] = tmp
+            try:
+                orig = kbmode.load_original_palette(red)
+                self.assertEqual(orig[:21], kbmode.FACTORY_GROUP)        # nu roșul rămas
+                self.assertEqual(kbmode.load_original_palette(bytes(1024)), orig)  # refolosit din fișier
+            finally:
+                for k, v in zip(("XDG_CONFIG_HOME", "APPDATA"), old):
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
