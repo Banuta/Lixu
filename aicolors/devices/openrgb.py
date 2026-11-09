@@ -30,6 +30,7 @@ REQUEST_CONTROLLER_DATA = 1
 SET_CLIENT_NAME = 50
 DEVICE_LIST_UPDATED = 100
 UPDATE_LEDS = 1050
+UPDATE_ZONE_LEDS = 1051
 SET_CUSTOM_MODE = 1100
 
 DEVICE_TYPES = [
@@ -100,6 +101,26 @@ def parse_controller(index: int, data: bytes) -> Controller:
     return Controller(index, t, name, description, location, zones, num_leds)
 
 
+def update_zone_payload(zone: int, colors: Sequence[RGB]) -> bytes:
+    n = len(colors)
+    body = b"".join(struct.pack("<BBBB", int(c[0]), int(c[1]), int(c[2]), 0) for c in colors)
+    return struct.pack("<IiH", 4 + 4 + 2 + 4 * n, zone, n) + body
+
+
+def find_zone(ctrl: "Controller", zone) -> int:
+    """Indexul zonei după număr sau după (o parte din) nume, ex. "D_LED1"."""
+    if isinstance(zone, int) or (isinstance(zone, str) and zone.isdigit()):
+        idx = int(zone)
+        if 0 <= idx < len(ctrl.zones):
+            return idx
+    else:
+        for idx, (name, _n) in enumerate(ctrl.zones):
+            if str(zone).lower() in name.lower():
+                return idx
+    names = ", ".join(f"{i}: {n} ({c} LED)" for i, (n, c) in enumerate(ctrl.zones))
+    raise DeviceError(f"{ctrl.name}: nu există zona {zone!r}. Zone: {names}")
+
+
 def update_leds_payload(colors: Sequence[RGB]) -> bytes:
     n = len(colors)
     body = b"".join(struct.pack("<BBBB", int(c[0]), int(c[1]), int(c[2]), 0) for c in colors)
@@ -151,6 +172,9 @@ class OpenRGBClient:
     def set_custom_mode(self, index: int) -> None:
         self._send(index, SET_CUSTOM_MODE)
 
+    def update_zone_leds(self, index: int, zone: int, colors: Sequence[RGB]) -> None:
+        self._send(index, UPDATE_ZONE_LEDS, update_zone_payload(zone, colors))
+
     def update_leds(self, index: int, colors: Sequence[RGB]) -> None:
         self._send(index, UPDATE_LEDS, update_leds_payload(colors))
 
@@ -188,17 +212,31 @@ class OpenRGBDevice(Device):
 
     def __init__(self, host: str = "127.0.0.1", port: int = DEFAULT_PORT, match: Optional[str] = None,
                  device_type: Optional[str] = None, index: Optional[int] = None,
-                 all_matches: bool = False, name: Optional[str] = None):
+                 all_matches: bool = False, name: Optional[str] = None, zone=None):
         self.client = OpenRGBClient(host, port)
+        self.zone: Optional[int] = None
         try:
-            ctrls = select(self.client.controllers(), match, device_type, index, all_matches)
+            ctrls = select(self.client.controllers(), match, device_type, index, all_matches and zone is None)
+            if zone is not None:
+                ctrls = ctrls[:1]
+                self.zone = find_zone(ctrls[0], zone)
+                zname, zcount = ctrls[0].zones[self.zone]
+                if zcount == 0:
+                    raise DeviceError(f"zona {zname} are 0 LED-uri: în OpenRGB setează mărimea benzii "
+                                      "(click dreapta pe zonă -> Resize Zone), apoi Save Profile")
             for c in ctrls:
                 self.client.set_custom_mode(c.index)
         except Exception:
             self.client.close()
             raise
-        label = name or (ctrls[0].name if len(ctrls) == 1 else f"{ctrls[0].name} x{len(ctrls)}")
-        super().__init__(label, sum(c.leds for c in ctrls))
+        if self.zone is not None:
+            zname, zcount = ctrls[0].zones[self.zone]
+            label = name or f"{ctrls[0].name} - {zname}"
+            leds = zcount
+        else:
+            label = name or (ctrls[0].name if len(ctrls) == 1 else f"{ctrls[0].name} x{len(ctrls)}")
+            leds = sum(c.leds for c in ctrls)
+        super().__init__(label, leds)
         self.controllers = ctrls
 
     @property
@@ -207,6 +245,9 @@ class OpenRGBDevice(Device):
 
     def send(self, colors: Sequence[RGB]) -> None:
         try:
+            if self.zone is not None:
+                self.client.update_zone_leds(self.controllers[0].index, self.zone, colors)
+                return
             pos = 0
             for c in self.controllers:
                 self.client.update_leds(c.index, colors[pos:pos + c.leds])
@@ -222,7 +263,8 @@ def from_config(entry: dict) -> Device:
     dtype = entry.get("device_type")
     return OpenRGBDevice(entry.get("host", "127.0.0.1"), entry.get("port", DEFAULT_PORT),
                          entry.get("match"), dtype, entry.get("index"),
-                         all_matches=bool(entry.get("all", dtype == "dram")), name=entry.get("name"))
+                         all_matches=bool(entry.get("all", dtype == "dram")), name=entry.get("name"),
+                         zone=entry.get("zone"))
 
 
 def discover(host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> List[Found]:
@@ -256,6 +298,14 @@ def discover(host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> List[Found]:
                 f"openrgb:{c.type}", c.name, address=f"{host}:{port} #{c.index}",
                 details=f"{c.leds} LED-uri; zone: {zones}", controllable=c.leds > 0, config=config,
             ))
+            if len(c.zones) > 1:  # fiecare zonă (ex. conectorii ARGB D_LED1/D_LED2) poate fi separată
+                for zi, (zname, zcount) in enumerate(c.zones):
+                    zf = Found(f"openrgb:{c.type}:zonă", f"{c.name} - {zname}", address=f"{host}:{port} #{c.index}/{zi}",
+                               details=f"{zcount} LED-uri (doar zona asta)", controllable=zcount > 0,
+                               config=dict(config, zone=zname, name=f"{c.name} - {zname}"))
+                    if zcount == 0:
+                        zf.notes.append("0 LED-uri: în OpenRGB, click dreapta pe zonă -> Resize Zone")
+                    found.append(zf)
         return found
     finally:
         client.close()

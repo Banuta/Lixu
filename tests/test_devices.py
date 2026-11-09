@@ -57,12 +57,15 @@ def _ostr(s):
     return struct.pack("<H", len(raw)) + raw
 
 
-def fake_controller(ctype=0, name="ASUS ROG STRIX B550-F", leds=3):
+def fake_controller(ctype=0, name="ASUS ROG STRIX B550-F", leds=3, zones=None):
+    zones = zones or [("Aura Mainboard", leds)]
+    leds = sum(n for _, n in zones)
     body = struct.pack("<i", ctype) + _ostr(name) + _ostr("ASUS Aura") + _ostr("1") + _ostr("") + _ostr("HID")
     body += struct.pack("<Hi", 1, 0)  # 1 mod, activ 0
     body += _ostr("Direct") + struct.pack("<9I", *([0] * 9)) + struct.pack("<H", 1) + struct.pack("<I", 0xFF)
-    body += struct.pack("<H", 1) + _ostr("Aura Mainboard") + struct.pack("<iIII", 1, leds, leds, leds)
-    body += struct.pack("<H", 0)  # fără matrice
+    body += struct.pack("<H", len(zones))
+    for zname, zcount in zones:
+        body += _ostr(zname) + struct.pack("<iIII", 1, zcount, 120, zcount) + struct.pack("<H", 0)  # fără matrice
     body += struct.pack("<H", leds) + b"".join(_ostr(f"LED {i}") + struct.pack("<I", i) for i in range(leds))
     body += struct.pack("<H", leds) + b"\x00" * 4 * leds
     return struct.pack("<I", 4 + len(body)) + body
@@ -158,6 +161,48 @@ class OpenRGBRamTest(unittest.TestCase):
         self.assertEqual(found[0].config["device_type"], "dram")
         self.assertTrue(found[0].config["all"])
         self.assertEqual(found[1].config["device_type"], "motherboard")
+
+
+class OpenRGBZoneTest(unittest.TestCase):
+    BOARD = [fake_controller(0, "B550M AORUS ELITE", zones=[("Motherboard", 0), ("D_LED1 Bottom", 30),
+                                                             ("D_LED2 Top", 20)])]
+
+    def test_zone_device_sends_only_its_zone(self):
+        srv = FakeOpenRGB(self.BOARD)
+        srv.start()
+        dev = openrgb.from_config({"type": "openrgb", "match": "B550M AORUS ELITE", "zone": "D_LED2",
+                                   "port": srv.port})
+        self.assertEqual((dev.led_count, dev.zone, dev.name), (20, 2, "B550M AORUS ELITE - D_LED2 Top"))
+        dev.send([(1, 2, 3)] * 20)
+        dev.close()
+        srv.join(2)
+        last = srv.received[-1]
+        self.assertEqual(last[1], openrgb.UPDATE_ZONE_LEDS)
+        self.assertEqual(last[2], openrgb.update_zone_payload(2, [(1, 2, 3)] * 20))
+        self.assertEqual(struct.unpack("<IiH", last[2][:10]), (10 + 80, 2, 20))
+
+    def test_empty_or_unknown_zone(self):
+        from aicolors.devices.base import DeviceError
+
+        for zone in ("Motherboard", "D_LED9"):
+            srv = FakeOpenRGB(self.BOARD)
+            srv.start()
+            with self.assertRaises(DeviceError) as ctx:
+                openrgb.from_config({"type": "openrgb", "match": "AORUS", "zone": zone, "port": srv.port})
+            srv.join(2)
+            self.assertTrue("Resize" in str(ctx.exception) or "D_LED1" in str(ctx.exception))
+
+    def test_scan_lists_zones(self):
+        srv = FakeOpenRGB(self.BOARD)
+        srv.start()
+        found = openrgb.discover(port=srv.port)
+        srv.join(2)
+        names = [f.name for f in found]
+        self.assertIn("B550M AORUS ELITE - D_LED1 Bottom", names)
+        z2 = next(f for f in found if f.name.endswith("D_LED2 Top"))
+        self.assertEqual(z2.config["zone"], "D_LED2 Top")
+        z0 = next(f for f in found if f.name.endswith("Motherboard"))
+        self.assertFalse(z0.controllable)
 
 
 class MemoryDiscoveryTest(unittest.TestCase):

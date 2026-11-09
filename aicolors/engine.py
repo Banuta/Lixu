@@ -232,7 +232,7 @@ class Engine:
         """Câmpurile care cer reconectare când se schimbă."""
         keys = ("type", "host", "port", "id", "target", "zones", "match", "device_type", "index",
                 "leds", "local_key", "version", "rgb_order", "dll", "hosts", "segments", "groups", "gradient",
-                "backend", "all")
+                "backend", "all", "zone")
         return tuple(str(entry.get(k)) for k in keys)
 
     def keyboard_preview(self, value) -> dict:

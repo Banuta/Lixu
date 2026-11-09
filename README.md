@@ -117,6 +117,21 @@ Limitări reale:
 * Dacă reîmperechezi un bec în Smart Life, cheia se schimbă: apasă din nou „Ia cheile”.
 * Alternativă mai rapidă pentru unele becuri: firmware alternativ (OpenBeken / ESPHome).
 
+## OpenRGB: zone separate (benzi pe conectorii plăcii)
+
+O placă de bază are mai multe zone: LED-urile de pe placă și conectorii ARGB (pe Gigabyte
+`D_LED1`, `D_LED2`). Cu `"zone"` fiecare linie controlează doar zona ei, cu efectul ei:
+
+```json
+{"type": "openrgb", "match": "B550M AORUS ELITE", "zone": "D_LED1", "effect": "health", "name": "Banda 1"}
+{"type": "openrgb", "match": "B550M AORUS ELITE", "zone": "D_LED2", "effect": "ambient", "name": "Banda 2"}
+```
+
+`zone` e numele zonei (sau doar o parte din el) sau numărul ei. Numele exacte apar la
+**Dispozitive -> Scanează**, câte un rând pe zonă, sau în OpenRGB. Dacă o zonă ARGB are 0 LED-uri,
+în OpenRGB dă click dreapta pe zonă -> **Resize Zone**, pune numărul de LED-uri al benzii și
+apasă **Save Profile**.
+
 ## Govee: segmente și grupuri
 
 Le scrii direct în `aicolors.json` (sau în interfață: Dispozitive -> JSON la rândul Govee).
