@@ -72,6 +72,10 @@ Totul se salvează în `aicolors.json` și se aplică imediat, fără restart.
   Alegi efectele în **Dispozitive -> Efectele tastaturii ZENKABEAT**, cu butonul **Încearcă**.
   Scrie un singur byte (0xB60D, același pe care îl scrie tasta Fn), doar la schimbarea situației,
   cel mult o dată la 3 secunde, și pune înapoi efectul tău la închidere.
+  **Culori automate** (bifa din același card): AI Colors scrie paleta tastaturii cu culoarea situației
+  (echipă, bombă, mort) și pune efectul fix; la meniu și la închidere revin paleta și efectul tău.
+  Întâi rulează `tastatura-culori-test.bat` (sau `aicolors kbtest color`): verifică dacă tastatura ta
+  își schimbă culoarea așa și care metodă merge.
 * **WLED**: nimic special, doar aceeași rețea. Când AI Colors se oprește, banda revine singură la
   efectul ei după 2 secunde.
 * **Govee**: în Govee Home -> dispozitiv -> setări -> activează **LAN Control**.

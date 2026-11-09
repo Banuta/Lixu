@@ -57,12 +57,13 @@ class KbModeWriter:
         time.sleep(0.25)
         return self._stable(0xB4) == bytes(mod)
 
-    def set_mode(self, value: int) -> bool:
-        """True dacă tastatura are acum efectul `value`."""
+    def set_mode(self, value: int, force: bool = False) -> bool:
+        """True dacă tastatura are acum efectul `value`. force=True rescrie efectul chiar dacă e
+        același (tastatura își reîncarcă atunci setările, inclusiv paleta)."""
         if not 0 <= value <= MAX_MODE:
             raise ValueError(f"efect invalid: {value}")
         page = self._stable(protocol.SETTINGS_PAGE)
-        if page[protocol.MODE_OFFSET] == value:
+        if page[protocol.MODE_OFFSET] == value and not force:
             return True
         order = ["profile", "page"] if self.method != "page" else ["page"]
         for method in order:
@@ -81,5 +82,44 @@ class KbModeWriter:
                 page = now
         return False
 
+    # ------------------------------------------------------------ paleta
+
+    def read_palette(self) -> bytes:
+        return self._stable(PALETTE_PAGE)
+
+    def write_palette(self, table: bytes) -> bool:
+        """Scrie paleta (1024 bytes la 0xB800) și verifică prin recitire; nu scrie dacă e deja la fel."""
+        if len(table) != PALETTE_LEN:
+            raise ValueError("paleta are 1024 bytes")
+        if self._stable(PALETTE_PAGE) == table:
+            return True
+        self.link.data.set_feature(protocol.write_packet(PALETTE_PAGE, table))
+        self.writes += 1
+        time.sleep(0.25)
+        return self._stable(PALETTE_PAGE) == table
+
     def close(self) -> None:
         self.link.close()
+
+
+# ---------------------------------------------------------------------- paleta (culorile efectelor)
+
+PALETTE_PAGE = 0xB8
+PALETTE_LEN = 1024
+GROUP = 21  # 7 culori x 3 bytes pe efect
+
+
+def palette_groups(table: bytes) -> int:
+    n = 0
+    while (n + 1) * GROUP <= len(table) and any(table[n * GROUP:(n + 1) * GROUP]):
+        n += 1
+    return n
+
+
+def fill_palette(table: bytes, color, groups: int) -> bytes:
+    """Toate cele 7 culori ale primelor `groups` efecte = `color`; restul tabelei neatins."""
+    out = bytearray(table)
+    rgb = bytes(int(c) & 0xFF for c in color)
+    for g in range(groups):
+        out[g * GROUP:(g + 1) * GROUP] = rgb * 7
+    return bytes(out)

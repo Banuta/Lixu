@@ -411,7 +411,7 @@ def build_parser() -> argparse.ArgumentParser:
     m.set_defaults(func=cmd_mouse)
 
     kt = sub.add_parser("kbtest", help="test controlat: scrierea paletei tastaturii ZENKABEAT")
-    kt.add_argument("step", choices=["learn", "read", "red", "check", "restore", "mode"])
+    kt.add_argument("step", choices=["learn", "read", "red", "check", "restore", "mode", "color"])
     kt.add_argument("value", nargs="?", type=int, default=-1, help="pentru mode: numărul efectului")
     kt.set_defaults(func=cmd_kbtest)
 

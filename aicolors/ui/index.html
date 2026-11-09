@@ -136,6 +136,10 @@
       <p class="muted" style="font-size:12px;margin-top:0">Tastatura ta nu are culori live, așa că AI Colors îi schimbă
         efectul după situația din joc. Scrie numărul efectului (cel pe care îl schimbi cu Fn) sau lasă gol pentru
         efectul tău. Apasă „Încearcă” ca să vezi cum arată, apoi Salvează.</p>
+      <div class="row"><label style="min-width:0"><input type="checkbox" id="kbAuto"> <b>Culori automate (ca la benzi)</b>:
+        culoarea echipei, roșu la bombă, gri când mori; la meniu revin efectul și culorile tale</label></div>
+      <div class="row" id="kbStaticRow"><label>Efectul fix</label><input type="number" id="kbStatic" min="0" max="32" style="width:90px">
+        <span class="muted">numărul efectului cu o singură culoare (de obicei 1); verifică-l cu tastatura-culori-test.bat</span></div>
       <table><tbody id="kbModes"></tbody></table>
       <div class="row"><button class="btn" id="kbRestore">Revino la efectul meu</button></div>
     </div>
@@ -373,6 +377,11 @@ function renderKeyboardModes() {
   if (i < 0) return;
   $("#kbNow").textContent = isModes ? `efect acum: ${snap.mode}, al tău: ${snap.original_mode}` +
     (snap.scene ? `, situație: ${LABELS.scenes[snap.scene] || snap.scene}` : "") : "";
+  const auto = !!cfg.devices[i].auto_colors;
+  $("#kbAuto").checked = auto;
+  $("#kbStaticRow").hidden = !auto;
+  $("#kbModes").hidden = auto;
+  if (document.activeElement !== $("#kbStatic")) $("#kbStatic").value = cfg.devices[i].static_mode ?? 1;
   if (document.activeElement && document.activeElement.closest("#kbModes")) return;
   const modes = cfg.devices[i].modes || {};
   $("#kbModes").innerHTML = meta.scenes.map(sc => `<tr data-scene="${sc}">
@@ -391,6 +400,12 @@ $("#kbModes").addEventListener("click", async e => {
   const v = e.target.closest("tr").querySelector("input").value;
   try { const r = await api("/api/kbmode", {value: v === "" ? null : +v}); toast(`Efect ${r.mode} pe tastatură`); }
   catch (err) { toast("Eroare: " + err.message, 5000); }
+});
+$("#kbAuto").onchange = e => {
+  const i = kbIndex(); cfg.devices[i].auto_colors = e.target.checked; markDirty(); renderKeyboardModes();
+};
+$("#kbStatic").addEventListener("input", e => {
+  const i = kbIndex(); cfg.devices[i].static_mode = Math.max(0, Math.min(32, +e.target.value || 1)); markDirty();
 });
 $("#kbRestore").onclick = async () => {
   try { await api("/api/kbmode", {value: null}); toast("Efectul tău e înapoi"); }

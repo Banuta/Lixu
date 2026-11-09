@@ -152,8 +152,9 @@ class ZenkabeatModeKeyboard(Device):
     scene_based = True
     DEFAULT_MODES = {"bomb": 4}
 
-    def __init__(self, modes: Optional[dict] = None, writer=None):
-        Device.__init__(self, "ZENKABEAT (efecte)", 1)
+    def __init__(self, modes: Optional[dict] = None, writer=None, auto_colors: bool = False,
+                 static_mode: int = 1, reload: str = "force"):
+        Device.__init__(self, "ZENKABEAT (culori automate)" if auto_colors else "ZENKABEAT (efecte)", 1)
         if writer is None:
             from ..kbmode import KbModeWriter
 
@@ -163,7 +164,50 @@ class ZenkabeatModeKeyboard(Device):
         self.original = writer.current()
         self.current = self.original
         self.scene = ""
-        log.info("Tastatură în modul efecte; efectul tău: %d", self.original)
+        self.auto_colors = auto_colors
+        self.static_mode = int(static_mode)
+        self.reload = reload
+        self.palette_now: Optional[bytes] = None
+        self.original_palette: Optional[bytes] = None
+        if auto_colors:
+            from ..kbmode import palette_groups
+
+            self.original_palette = writer.read_palette()
+            self.palette_now = self.original_palette
+            self.groups = palette_groups(self.original_palette)
+        log.info("Tastatură: %s; efectul tău: %d", "culori automate" if auto_colors else "efecte", self.original)
+
+    @staticmethod
+    def scene_color(scene: str):
+        from .. import effects
+
+        return {
+            "ct": effects.CT_COLOR, "t": effects.T_COLOR, "bomb": effects.BOMB_COLOR,
+            "dead": effects.DEAD_COLOR, "low_hp": (255, 0, 0), "identify": (255, 255, 255),
+        }.get(scene)
+
+    def _apply_auto(self, scene: str) -> None:
+        from ..kbmode import fill_palette
+
+        color = self.scene_color(scene)
+        if color is None:  # meniu: paleta și efectul tău
+            palette, mode = self.original_palette, self.original
+        else:
+            palette, mode = fill_palette(self.original_palette, color, self.groups), self.static_mode
+        palette_changed = palette != self.palette_now
+        if palette_changed:
+            if not self.writer.write_palette(palette):
+                raise OSError("tastatura nu a acceptat paleta")
+            self.palette_now = palette
+        if mode != self.current:
+            self._write(mode)
+        elif palette_changed:  # același efect: îl reaplicăm ca să citească paleta nouă
+            if self.reload == "toggle":
+                other = 2 if mode != 2 else 3
+                self.writer.set_mode(other)
+                self.writer.set_mode(mode)
+            else:
+                self.writer.set_mode(mode, force=True)
 
     def mode_for(self, scene: str) -> int:
         if scene == "identify":
@@ -182,7 +226,10 @@ class ZenkabeatModeKeyboard(Device):
     def send(self, items) -> None:
         scene = items[0] if items and isinstance(items[0], str) else "identify"
         self.scene = scene
-        self._write(self.mode_for(scene))
+        if self.auto_colors:
+            self._apply_auto(scene)
+        else:
+            self._write(self.mode_for(scene))
 
     def preview(self, value: Optional[int]) -> None:
         """Pentru butonul „Încearcă” din interfață; None = înapoi la efectul tău."""
@@ -190,6 +237,11 @@ class ZenkabeatModeKeyboard(Device):
 
     def close(self) -> None:
         try:
+            if self.auto_colors and self.palette_now != self.original_palette:
+                self.writer.write_palette(self.original_palette)
+                self.palette_now = self.original_palette
+                self.writer.set_mode(self.original, force=True)
+                self.current = self.original
             self._write(self.original)
         except Exception as exc:
             log.warning("Nu am putut pune înapoi efectul tastaturii: %s", exc)
@@ -205,7 +257,9 @@ def has_live_channel() -> bool:
 
 def from_config(entry: dict) -> Device:
     if sys.platform == "win32" and not has_live_channel():
-        return ZenkabeatModeKeyboard(entry.get("modes"))
+        return ZenkabeatModeKeyboard(entry.get("modes"), auto_colors=bool(entry.get("auto_colors", False)),
+                                     static_mode=int(entry.get("static_mode", 1)),
+                                     reload=entry.get("reload", "force"))
     return ZenkabeatKeyboard(rgb_order=protocol.parse_rgb_order(entry.get("rgb_order", "0,1,2")))
 
 

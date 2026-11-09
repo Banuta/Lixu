@@ -542,3 +542,50 @@ class EngineNoHangTest(unittest.TestCase):
             self.assertFalse(t.is_alive())
         finally:
             engmod.create_device = orig
+
+
+class FakePaletteWriter(FakeModeWriter):
+    def __init__(self, mode=2):
+        super().__init__(mode)
+        self.palette = bytes.fromhex("ff0000ffff0000ff0000ffff0000ffff00ffffffff") * 20 + bytes(1024 - 420)
+        self.palette_writes = []
+        self.forced = []
+
+    def read_palette(self):
+        return self.palette
+
+    def write_palette(self, table):
+        self.palette_writes.append(table[:3])
+        self.palette = table
+        return True
+
+    def set_mode(self, value, force=False):
+        if force:
+            self.forced.append(value)
+        return super().set_mode(value)
+
+
+class ZenkabeatAutoColorsTest(unittest.TestCase):
+    def test_scene_colors_and_restore(self):
+        from aicolors.devices.zenkabeat import ZenkabeatModeKeyboard
+
+        w = FakePaletteWriter(mode=2)
+        orig = w.palette
+        dev = ZenkabeatModeKeyboard(writer=w, auto_colors=True, static_mode=1)
+        self.assertEqual(dev.groups, 20)
+        dev.send(["ct"])                         # paleta albastră + efect fix
+        self.assertEqual(w.palette[:21], bytes(effects.CT_COLOR) * 7)
+        self.assertEqual(w.palette[420:], orig[420:])  # restul tabelei neatins
+        self.assertEqual(w.calls, [1])
+        dev.send(["bomb"])                       # același efect: paletă roșie + reaplicare forțată
+        self.assertEqual(w.palette[:3], bytes(effects.BOMB_COLOR))
+        self.assertEqual(w.forced, [1])
+        dev.send(["bomb"])                       # nimic nou de scris
+        self.assertEqual(len(w.palette_writes), 2)
+        dev.send(["menu"])                       # paleta și efectul tău
+        self.assertEqual(w.palette, orig)
+        self.assertEqual(w.mode, 2)
+        dev.send(["t"])
+        dev.close()                              # la închidere: totul înapoi
+        self.assertEqual(w.palette, orig)
+        self.assertEqual(w.mode, 2)

@@ -153,6 +153,66 @@ def set_mode(value: int) -> int:
         link.close()
 
 
+def _ask(text: str) -> bool:
+    try:
+        return input(f"{text} (scrie d = da / n = nu, apoi Enter): ").strip().lower() in ("d", "da", "y")
+    except EOFError:
+        return False
+
+
+def color_test(static_mode: int = 1) -> int:
+    """Poate tastatura să-și schimbe singură culorile? Scrie paleta, reaplică efectul fix, întreabă."""
+    from .kbmode import KbModeWriter, fill_palette, palette_groups
+
+    w = KbModeWriter()
+    report: List[str] = []
+    try:
+        orig_mode = w.current()
+        orig_pal = w.read_palette()
+        groups = palette_groups(orig_pal)
+        Path("kb_color_backup_palette.bin").write_bytes(orig_pal)
+        print(f"Efectul tău: {orig_mode}; palete găsite: {groups}. Backup: kb_color_backup_palette.bin")
+        if not _confirm("Testul schimbă efectul și culorile tastaturii de câteva ori, apoi pune totul înapoi."):
+            print("Anulat.")
+            return 1
+        w.set_mode(static_mode)
+        fixed = _ask(f"Am pus efectul {static_mode}. E o singură culoare FIXĂ, fără animație?")
+        report.append(f"efect {static_mode} = fix: {fixed}")
+
+        w.write_palette(fill_palette(orig_pal, (255, 0, 0), groups))
+        w.set_mode(static_mode, force=True)
+        red = _ask("Am scris paleta ROȘIE și am reaplicat efectul. S-a făcut tastatura ROȘIE?")
+        report.append(f"roșu prin reaplicare: {red}")
+        method = "force" if red else None
+        if not red:
+            w.set_mode(2 if static_mode != 2 else 3)
+            w.set_mode(static_mode)
+            red = _ask("Am comutat pe alt efect și înapoi. ACUM e ROȘIE?")
+            report.append(f"roșu prin comutare: {red}")
+            method = "toggle" if red else None
+        if method:
+            w.write_palette(fill_palette(orig_pal, (0, 90, 255), groups))
+            if method == "force":
+                w.set_mode(static_mode, force=True)
+            else:
+                w.set_mode(2 if static_mode != 2 else 3)
+                w.set_mode(static_mode)
+            blue = _ask("Am scris paleta ALBASTRĂ. S-a făcut ALBASTRĂ?")
+            report.append(f"albastru ({method}): {blue}")
+        report.append(f"metodă: {method}; scrieri: {w.writes}")
+    finally:
+        try:
+            w.write_palette(Path("kb_color_backup_palette.bin").read_bytes())
+            w.set_mode(orig_mode, force=True)
+            print("Am pus înapoi paleta și efectul tău.")
+        except Exception as exc:
+            print(f"ATENȚIE: nu am putut pune înapoi totul ({exc}). Rulează: python -m aicolors kbtest mode {orig_mode}")
+        w.close()
+    Path("kbcolor.txt").write_text("\n".join(report), encoding="utf-8")
+    print("\nRezultat:\n" + "\n".join(report) + f"\n\nTrimite-mi textul de mai sus (e și în {Path('kbcolor.txt').resolve()}).")
+    return 0
+
+
 def _confirm(text: str) -> bool:
     print(text)
     try:
@@ -165,6 +225,8 @@ def run(step: str, value: int = -1) -> int:
     if sys.platform != "win32":
         print("Testul funcționează doar pe Windows.")
         return 1
+    if step == "color":
+        return color_test(value if value >= 0 else 1)
     if step == "mode":
         if value < 0:
             print("Scrie și numărul efectului, de exemplu: python -m aicolors kbtest mode 5")
