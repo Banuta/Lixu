@@ -185,3 +185,17 @@ class Cs2CfgTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class KbTestTableTest(unittest.TestCase):
+    def test_groups_and_red(self):
+        from aicolors import kbtest
+
+        pal = bytes.fromhex("ff0000ffff0000ff0000ffff0000ffff00ffffffff")
+        table = (pal * 20).ljust(1024, b"\x00")
+        self.assertEqual(kbtest.palette_groups(table), 20)
+        self.assertEqual(kbtest.colors_of(table, 1)[0][:3], ["#ff0000", "#ffff00", "#00ff00"])
+        red = kbtest.all_red(table, 20)
+        self.assertTrue(kbtest.is_all_red(red, 20))
+        self.assertEqual(red[20 * 21:], table[20 * 21:])  # restul tabelei nu se atinge
+        self.assertFalse(kbtest.is_all_red(table, 20))

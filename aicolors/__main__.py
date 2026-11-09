@@ -273,6 +273,12 @@ def cmd_demo(args) -> int:
     return 0
 
 
+def cmd_kbtest(args) -> int:
+    from .kbtest import run
+
+    return run(args.step)
+
+
 def cmd_diag(args) -> int:
     from .diag import run
 
@@ -307,7 +313,7 @@ def cmd_probe(args) -> int:
     return 0
 
 
-COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "battery", "mouse", "probe", "diag")
+COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "battery", "mouse", "probe", "diag", "kbtest")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -370,6 +376,10 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--host-mode", choices=["on", "off"],
                    help="on = PC-ul controlează DPI/polling; off = profilurile din memoria mouse-ului")
     m.set_defaults(func=cmd_mouse)
+
+    kt = sub.add_parser("kbtest", help="test controlat: scrierea paletei tastaturii ZENKABEAT")
+    kt.add_argument("step", choices=["read", "red", "check", "restore"])
+    kt.set_defaults(func=cmd_kbtest)
 
     dg = sub.add_parser("diag", help="diagnostic complet în diagnostic.txt")
     dg.add_argument("--out", default="diagnostic.txt")
