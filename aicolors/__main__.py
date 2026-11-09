@@ -273,6 +273,14 @@ def cmd_demo(args) -> int:
     return 0
 
 
+def cmd_diag(args) -> int:
+    from .diag import run
+
+    path = run(Path(args.out).resolve())
+    print(f"\nGata. Trimite fișierul: {path}")
+    return 0
+
+
 def cmd_probe(args) -> int:
     if sys.platform != "win32":
         print("probe funcționează doar pe Windows.")
@@ -299,7 +307,7 @@ def cmd_probe(args) -> int:
     return 0
 
 
-COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "battery", "mouse", "probe")
+COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "battery", "mouse", "probe", "diag")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -362,6 +370,10 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--host-mode", choices=["on", "off"],
                    help="on = PC-ul controlează DPI/polling; off = profilurile din memoria mouse-ului")
     m.set_defaults(func=cmd_mouse)
+
+    dg = sub.add_parser("diag", help="diagnostic complet în diagnostic.txt")
+    dg.add_argument("--out", default="diagnostic.txt")
+    dg.set_defaults(func=cmd_diag)
 
     pr = sub.add_parser("probe", help="listează interfețele HID ale tastaturii")
     pr.add_argument("--all", action="store_true", help="toate dispozitivele HID, nu doar tastatura")
