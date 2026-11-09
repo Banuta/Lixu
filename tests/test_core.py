@@ -226,3 +226,13 @@ class WriteGuardTest(unittest.TestCase):
         pkt = protocol.write_packet(0xB8, bytes(1024))
         self.assertEqual(pkt[:8], bytes((6, 8, 0xB8, 0, 0x40, 0, 0, 0)))
         self.assertEqual(len(pkt), 1032)
+
+
+class ProfileWriteTest(unittest.TestCase):
+    def test_profile_packet(self):
+        pkt = protocol.profile_write_packet(0xB6, bytes(range(254)))
+        self.assertEqual(len(pkt), 1032)
+        self.assertEqual(pkt[:8], bytes((6, 3, 0xB6, 0, 0, 0, 0, 0)))
+        self.assertEqual(pkt[8 + 0x0D], 0x0D)
+        with self.assertRaises(ValueError):
+            protocol.profile_write_packet(0x02, bytes(254))

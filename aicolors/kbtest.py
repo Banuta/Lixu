@@ -6,6 +6,7 @@ Pași:
   red      scrie o singură dată paleta cu toate culorile roșii             - 1 scriere
   check    după ce scoți și bagi la loc cablul: a rămas roșu?            - fără risc
   restore  scrie înapoi backup-ul                                          - 1 scriere
+  mode N   schimbă efectul activ (byte-ul de la 0xB60D) în N, ca tasta Fn   - 1 scriere
 
 Cu „check” aflăm dacă tabela stă în memorie temporară (dispare la reconectare:
 putem schimba culorile des) sau în flash (rămâne: o schimbăm doar la evenimente rare).
@@ -83,6 +84,75 @@ def is_all_red(table: bytes, groups: int) -> bool:
     return groups > 0 and table[:groups * GROUP] == b"\xff\x00\x00" * (groups * GROUP // 3)
 
 
+def _read_page(link, page: int) -> bytes:
+    a = link.read_page(page << 8)
+    b = link.read_page(page << 8)
+    if a != b:
+        raise SystemExit("Citiri diferite ale aceleiași pagini; nu scriu nimic. Mai încearcă o dată.")
+    return a
+
+
+def set_mode(value: int) -> int:
+    """Schimbă efectul activ. Încearcă întâi comanda de profil a aplicației originale,
+    apoi scrierea generală de pagină, și verifică prin recitire."""
+    from .kblearn import KbLink
+
+    if not 0 <= value <= 0x20:
+        print("Valoare de efect neobișnuită; folosește un număr între 0 și 32.")
+        return 1
+    link = KbLink()
+    try:
+        page = _read_page(link, protocol.SETTINGS_PAGE)
+        old = page[protocol.MODE_OFFSET]
+        print(f"Efectul activ acum: {old}  (adresa 0xB60D)")
+        if old == value:
+            print("E deja setat; nu scriu nimic.")
+            return 0
+        Path(f"kb_page_B600_backup_{int(time.time())}.bin").write_bytes(page)
+        if not _confirm(f"Schimb efectul din {old} în {value} (un singur byte, ca tasta Fn)."):
+            print("Anulat.")
+            return 1
+        new = bytearray(page)
+        new[protocol.MODE_OFFSET] = value
+        attempts = [
+            ("comanda de profil (06 03 B6)",
+             protocol.profile_write_packet(protocol.SETTINGS_PAGE, bytes(new[:protocol.PROFILE_LEN]))),
+        ]
+        for label, packet in attempts:
+            link.data.set_feature(packet)
+            time.sleep(0.3)
+            now = _read_page(link, protocol.SETTINGS_PAGE)
+            if now[protocol.MODE_OFFSET] == value and now[protocol.PROFILE_LEN:] == page[protocol.PROFILE_LEN:]:
+                print(f"ACCEPTAT prin {label}: tastatura are acum efectul {value}.")
+                print("S-a schimbat efectul pe tastatură? Spune-mi da/nu.")
+                print(f"Ca să revii: python -m aicolors kbtest mode {old}")
+                return 0
+            if now[protocol.MODE_OFFSET] == value:
+                diff = sum(1 for x, y in zip(now, page) if x != y)
+                print(f"Efectul s-a schimbat în {value}, dar încă {diff - 1} bytes din pagină diferă de backup.\n"
+                      "Nu mai scriu nimic. Trimite-mi tot textul de aici.")
+                return 1
+            print(f"{label}: tastatura nu a acceptat scrierea (efect citit: {now[protocol.MODE_OFFSET]}).")
+        # A doua variantă: scrierea generală de 1024 bytes (ca la paletă), pe pagina 0xB400 care conține 0xB60D
+        if _confirm("Încerc și a doua metodă (scrierea întregii pagini 0xB400, ca la paletă)?"):
+            base = _read_page(link, 0xB4)
+            off = (protocol.SETTINGS_PAGE << 8) + protocol.MODE_OFFSET - 0xB400
+            mod = bytearray(base)
+            mod[off] = value
+            link.data.set_feature(protocol.write_packet(0xB4, bytes(mod)))
+            time.sleep(0.3)
+            now = _read_page(link, 0xB4)
+            if now == bytes(mod):
+                print(f"ACCEPTAT prin scrierea de pagină: efectul e acum {value}. S-a schimbat pe tastatură?")
+                print(f"Ca să revii: python -m aicolors kbtest mode {old}")
+                return 0
+            print(f"Nici scrierea de pagină nu a fost acceptată (efect citit: {now[off]}).")
+        print("Trimite-mi tot textul de aici.")
+        return 1
+    finally:
+        link.close()
+
+
 def _confirm(text: str) -> bool:
     print(text)
     try:
@@ -91,10 +161,15 @@ def _confirm(text: str) -> bool:
         return False
 
 
-def run(step: str) -> int:
+def run(step: str, value: int = -1) -> int:
     if sys.platform != "win32":
         print("Testul funcționează doar pe Windows.")
         return 1
+    if step == "mode":
+        if value < 0:
+            print("Scrie și numărul efectului, de exemplu: python -m aicolors kbtest mode 5")
+            return 1
+        return set_mode(value)
     if step == "read":
         table = read_table()
         groups = palette_groups(table)
@@ -165,5 +240,5 @@ def run(step: str) -> int:
               "Am scris backup-ul, dar recitirea diferă. Trimite-mi mesajul ăsta.")
         return 0
 
-    print("Pași: read, red, check, restore")
+    print("Pași: learn, read, red, check, restore, mode N")
     return 1

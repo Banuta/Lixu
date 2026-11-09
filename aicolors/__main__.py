@@ -280,7 +280,7 @@ def cmd_kbtest(args) -> int:
         return learn()
     from .kbtest import run
 
-    return run(args.step)
+    return run(args.step, args.value)
 
 
 def cmd_diag(args) -> int:
@@ -382,7 +382,8 @@ def build_parser() -> argparse.ArgumentParser:
     m.set_defaults(func=cmd_mouse)
 
     kt = sub.add_parser("kbtest", help="test controlat: scrierea paletei tastaturii ZENKABEAT")
-    kt.add_argument("step", choices=["learn", "read", "red", "check", "restore"])
+    kt.add_argument("step", choices=["learn", "read", "red", "check", "restore", "mode"])
+    kt.add_argument("value", nargs="?", type=int, default=-1, help="pentru mode: numărul efectului")
     kt.set_defaults(func=cmd_kbtest)
 
     dg = sub.add_parser("diag", help="diagnostic complet în diagnostic.txt")

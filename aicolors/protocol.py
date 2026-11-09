@@ -55,6 +55,21 @@ def read_request(table: int) -> bytes:
     return bytes((CMD_REPORT_ID, CMD_READ, table, 0, 0, 0, 0))
 
 
+# Efectul activ (aflat cu `kbtest learn`): un byte la 0xB60D, scris de tastatură la fiecare Fn.
+SETTINGS_PAGE = 0xB6
+MODE_OFFSET = 0x0D
+PROFILE_OP = 0x03     # SetProfile din aplicația originală: 06 03 <pagină> 00.. + 254 bytes
+PROFILE_LEN = 254
+
+
+def profile_write_packet(page: int, data: bytes) -> bytes:
+    if not WRITE_MIN_PAGE <= page <= 0xFC:
+        raise ValueError(f"scriere refuzată la adresa {page << 8:#06x}: e zona de cod a tastaturii")
+    if len(data) != PROFILE_LEN:
+        raise ValueError(f"profilul are exact {PROFILE_LEN} bytes")
+    return (bytes((DATA_REPORT_ID, PROFILE_OP, page, 0, 0, 0, 0, 0)) + bytes(data)).ljust(FEATURE_LEN_DATA, b"\x00")
+
+
 def write_packet(page: int, data: bytes, op: int = CMD_WRITE) -> bytes:
     """Pachet de scriere 1024 bytes la adresa page*256. Refuză zona de cod."""
     if not WRITE_MIN_PAGE <= page <= 0xFC:
