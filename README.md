@@ -63,6 +63,8 @@ Totul se salvează în `aicolors.json` și se aplică imediat, fără restart.
 * **WLED**: nimic special, doar aceeași rețea. Când AI Colors se oprește, banda revine singură la
   efectul ei după 2 secunde.
 * **Govee**: în Govee Home -> dispozitiv -> setări -> activează **LAN Control**.
+  Pentru benzi RGBIC (ex. H619A) poți controla **segmentele** separat și le poți **grupa**;
+  vezi [Govee: segmente și grupuri](#govee-segmente-și-grupuri).
 * **Tuya / Smart Life**: vezi [mai jos](#becuri-tuya--smart-life).
 * **Logitech, lumini**: **nu ai nevoie de G HUB**. Fără G HUB, AI Colors vorbește direct cu
   mouse-ul și căștile prin HID++ (ca Solaar). Dacă G HUB e totuși pornit, folosește SDK-ul lui
@@ -102,6 +104,30 @@ Limitări reale:
   ambient (echipă, bombă, flash), de maxim 4 ori pe secundă. Nu vor fi la fel de rapide ca WLED.
 * Dacă reîmperechezi un bec în Smart Life, cheia se schimbă: apasă din nou „Ia cheile”.
 * Alternativă mai rapidă pentru unele becuri: firmware alternativ (OpenBeken / ESPHome).
+
+## Govee: segmente și grupuri
+
+Le scrii direct în `aicolors.json` (sau în interfață: Dispozitive -> JSON la rândul Govee).
+Câte o linie per dispozitiv:
+
+```json
+{"type": "govee", "host": "192.168.68.70", "effect": "ambient"}
+{"type": "govee", "host": "192.168.68.70", "segments": 15, "effect": "health"}
+{"type": "govee", "host": "192.168.68.70", "segments": 15, "groups": [[0,1,2],[3,4,5,6],[7,8],[9,10,11,12,13,14]], "effect": "health"}
+{"type": "govee", "hosts": ["192.168.68.70", "192.168.68.80"], "effect": "ambient", "name": "Govee living"}
+```
+
+| Câmp | Ce face |
+|---|---|
+| `segments` | numărul de segmente ale benzii; fiecare segment primește culoarea lui (modul DreamView din API-ul LAN) |
+| `groups` | listă de grupuri de segmente (numerotate de la 0); fiecare grup e o „lumină”: cu `health`, bara de viață merge pe grupuri, în ordinea scrisă |
+| `hosts` | mai multe dispozitive Govee controlate împreună, ca un grup din aplicația Govee |
+| `gradient` | `true` = Govee face trecere lină între segmente |
+| `device_brightness` | luminozitatea dispozitivului, 1-100 |
+
+Segmentele care nu apar în niciun grup rămân stinse. Fără `segments`, toată banda are o singură
+culoare (comanda clasică `colorwc`). Când AI Colors se oprește, banda iese din modul pe segmente
+și revine la ce avea.
 
 ## Config (`aicolors.json`)
 

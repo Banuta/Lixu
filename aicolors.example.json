@@ -9,7 +9,8 @@
   "devices": [
     {"type": "zenkabeat", "effect": "keyboard"},
     {"type": "wled", "host": "192.168.1.60", "effect": "health", "name": "Banda birou"},
-    {"type": "govee", "host": "192.168.1.70", "effect": "ambient", "name": "Govee spate monitor"},
+    {"type": "govee", "host": "192.168.1.70", "segments": 15, "groups": [[0,1,2],[3,4,5,6],[7,8],[9,10,11,12,13,14]], "effect": "health", "name": "Govee spate monitor"},
+    {"type": "govee", "hosts": ["192.168.1.71", "192.168.1.72"], "effect": "ambient", "name": "Govee living", "enabled": false},
     {"type": "logitech", "target": "mouse", "effect": "ambient", "name": "G502"},
     {"type": "logitech", "target": "headset", "effect": "health", "name": "G733"},
     {"type": "openrgb", "device_type": "motherboard", "effect": "ambient", "brightness": 0.7},

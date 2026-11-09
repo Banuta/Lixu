@@ -52,7 +52,7 @@ def create_device(entry: dict, dry_run: bool = False, preview: bool = False) -> 
             from .zenkabeat import DryRunKeyboard
 
             return DryRunKeyboard(preview=preview)
-        leds = entry.get("leds") or DRY_RUN_LEDS[kind]
+        leds = entry.get("leds") or (len(entry.get("groups") or []) or entry.get("segments")) or DRY_RUN_LEDS[kind]
         return DryRunDevice(kind, entry.get("name") or f"{kind} (dry-run)", int(leds))
     module = importlib.import_module(FACTORIES[kind])
     return module.from_config(entry)

@@ -377,3 +377,69 @@ class ZenkabeatModesTest(unittest.TestCase):
         self.assertEqual(eng.keyboard_preview(9)["mode"], 9)
         eng.reconfigure([{"type": "zenkabeat", "modes": {"ct": 3}}])
         self.assertEqual(out.device.modes, {"ct": 3})
+
+
+class GoveeSegmentsTest(unittest.TestCase):
+    def test_razer_packets(self):
+        import base64
+
+        on = json.loads(govee.razer_enable(True))["msg"]
+        self.assertEqual(on, {"cmd": "razer", "data": {"pt": "uwABsQEK"}})
+        self.assertEqual(json.loads(govee.razer_enable(False))["msg"]["data"]["pt"], "uwABsQAL")
+        raw = base64.b64decode(json.loads(govee.razer_frame([(255, 0, 0), (0, 0, 255)]))["msg"]["data"]["pt"])
+        self.assertEqual(raw[:6], bytes((0xBB, 0x00, 8, 0xB0, 0x00, 2)))
+        self.assertEqual(raw[6:12], bytes((255, 0, 0, 0, 0, 255)))
+        x = 0
+        for b in raw[:-1]:
+            x ^= b
+        self.assertEqual(raw[-1], x)
+
+    def test_groups(self):
+        out = govee.expand_groups([(1, 1, 1), (2, 2, 2)], [[0, 2], [3]], 5)
+        self.assertEqual(out, [(1, 1, 1), (0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 0, 0)])
+
+    def _rx(self, n):
+        socks = []
+        for _ in range(n):
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.bind(("127.0.0.1", 0))
+            s.settimeout(2)
+            socks.append(s)
+        return socks
+
+    def test_device_segments_and_hosts(self):
+        rx = self._rx(2)
+        orig = govee.CONTROL_PORT
+        try:
+            # două „dispozitive” pe porturi diferite: trimitem direct la adresele lor
+            dev = govee.GoveeDevice(hosts=["127.0.0.1", "127.0.0.1"], segments=4, groups=[[0, 1], [2, 3]])
+            dev.addresses = [s.getsockname() for s in rx]
+            self.assertEqual(dev.led_count, 2)
+            dev.send([(9, 0, 0), (0, 9, 0)])
+            dev.close()
+            for s in rx:
+                msgs = []
+                while True:
+                    try:
+                        msgs.append(json.loads(s.recv(4096))["msg"])
+                    except socket.timeout:
+                        break
+                    if len(msgs) == 3:
+                        break
+                self.assertEqual([m["cmd"] for m in msgs], ["razer", "razer", "razer"])
+        finally:
+            govee.CONTROL_PORT = orig
+            for s in rx:
+                s.close()
+
+    def test_validation_and_config(self):
+        from aicolors.devices.base import DeviceError
+
+        with self.assertRaises(DeviceError):
+            govee.GoveeDevice("1.2.3.4", groups=[[0]])          # groups fără segments
+        with self.assertRaises(DeviceError):
+            govee.GoveeDevice("1.2.3.4", segments=3, groups=[[5]])
+        with self.assertRaises(DeviceError):
+            govee.GoveeDevice()
+        d = create_device({"type": "govee", "host": "x", "segments": 15, "groups": [[0], [1], [2]]}, dry_run=True)
+        self.assertEqual(d.led_count, 3)
