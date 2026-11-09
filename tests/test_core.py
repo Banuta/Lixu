@@ -253,3 +253,17 @@ class IconTest(unittest.TestCase):
         px = icon.pixels(16)
         self.assertEqual(px[0][3], 0)                 # colț transparent
         self.assertEqual(px[8 * 16 + 8][:3], (24, 26, 32))  # centrul închis
+
+
+class GameGroupsDecodeTest(unittest.TestCase):
+    def test_planar_rgb(self):
+        from aicolors import kbtest
+
+        data = bytearray(2048)
+        w = layout.key("W").rgbtab
+        # grupul 2 (g=1): R în planul 2, G în planul 1, B în planul 0 (GameRGBIndex 2,1,0)
+        data[(1 * 3 + 2) * 126 + w] = 0xFF
+        data[(1 * 3 + 0) * 126 + w] = 0x10
+        groups = kbtest.decode_game_groups(bytes(data))
+        self.assertEqual(groups[0], [])
+        self.assertEqual(groups[1], [("W", (0xFF, 0x00, 0x10))])

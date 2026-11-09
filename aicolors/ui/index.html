@@ -139,7 +139,7 @@
       <div class="row"><label style="min-width:0"><input type="checkbox" id="kbAuto"> <b>Culori automate (ca la benzi)</b>:
         culoarea echipei, roșu la bombă, gri când mori; la meniu revin efectul și culorile tale</label></div>
       <div class="row" id="kbStaticRow"><label>Efectul fix</label><input type="number" id="kbStatic" min="0" max="32" style="width:90px">
-        <span class="muted">numărul efectului cu o singură culoare (de obicei 1); verifică-l cu tastatura-culori-test.bat</span></div>
+        <span class="muted">1 = lumină fixă, 2 = respirație (culoarea pulsează)</span></div>
       <table><tbody id="kbModes"></tbody></table>
       <div class="row"><button class="btn" id="kbRestore">Revino la efectul meu</button></div>
     </div>
@@ -288,6 +288,10 @@ const LABELS = {
             bomb: "Bombă", fire: "Foc", dead: "Mort"},
   effects: {keyboard: "Tastatură (complet)", ambient: "Ambient (echipă + evenimente)", team: "Doar echipa",
             health: "Viață", armor: "Armură", ammo: "Gloanțe"},
+  // efectele tastaturii ZENKABEAT (numărul = poziția din listă; 12 = Reaction și 21 = stins, confirmate)
+  kbModes: ["", "Lumină fixă", "Respirație", "Curcubeu", "Flash", "Picături", "Roată curcubeu", "Valuri",
+            "Stele", "Umbre", "Șarpe", "Neon", "Reacție la taste", "Sinusoidă", "Scanare", "Moară",
+            "Cascadă", "Înflorire", "Furtună", "Coliziune", "Perfect", "Stins / Game mode", "Oprit"],
   scenes: {menu: "Meniu / desktop", ct: "Joc ca CT", t: "Joc ca T", bomb: "Bombă plantată", dead: "Mort",
            low_hp: "Viață sub 25"},
   sims: {menu: "Meniu", ct: "CT full HP", t_low: "T, HP mic, fără gloanțe", bomb: "Bombă plantată",
@@ -388,7 +392,8 @@ function renderKeyboardModes() {
   const isModes = snap && snap.original_mode != null;
   $("#kbCard").hidden = i < 0 || (snap && !isModes && snap.connected);
   if (i < 0) return;
-  $("#kbNow").textContent = isModes ? `efect acum: ${snap.mode}, al tău: ${snap.original_mode}` +
+  const mn = v => v != null ? `${v}${LABELS.kbModes[v] ? " (" + LABELS.kbModes[v] + ")" : ""}` : "?";
+  $("#kbNow").textContent = isModes ? `efect acum: ${mn(snap.mode)}, al tău: ${mn(snap.original_mode)}` +
     (snap.scene ? `, situație: ${LABELS.scenes[snap.scene] || snap.scene}` : "") : "";
   const auto = !!cfg.devices[i].auto_colors;
   $("#kbAuto").checked = auto;
@@ -399,7 +404,8 @@ function renderKeyboardModes() {
   const modes = cfg.devices[i].modes || {};
   $("#kbModes").innerHTML = meta.scenes.map(sc => `<tr data-scene="${sc}">
     <td style="width:180px">${esc(LABELS.scenes[sc] || sc)}</td>
-    <td><input type="number" min="0" max="32" value="${modes[sc] ?? ""}" placeholder="al tău" style="width:90px"></td>
+    <td><input type="number" min="0" max="32" value="${modes[sc] ?? ""}" placeholder="al tău" style="width:90px">
+      <span class="muted" style="font-size:12px">${esc(LABELS.kbModes[modes[sc]] || "")}</span></td>
     <td><button class="btn small" data-try>Încearcă</button></td></tr>`).join("");
 }
 $("#kbModes").addEventListener("input", e => {

@@ -17,7 +17,7 @@ from __future__ import annotations
 import sys
 import time
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 from . import protocol
 
@@ -153,6 +153,56 @@ def set_mode(value: int) -> int:
         link.close()
 
 
+GAME_GROUPS = 5
+GAME_PLANE = 126           # 126 de LED-uri pe plan de culoare
+GAME_RGB_INDEX = (2, 1, 0)  # GameRGBIndex din Cfg.ini: planul pentru R, G, B
+
+
+def decode_game_groups(data: bytes) -> List[List[Tuple[str, Tuple[int, int, int]]]]:
+    """Grupurile Game mode ca planuri RGB: grup g, canal c -> data[(g*3 + GAME_RGB_INDEX[c])*126 + RGBTAB]."""
+    from .layout import KEYS
+
+    groups = []
+    for g in range(GAME_GROUPS):
+        lit = []
+        for k in KEYS:
+            rgb = tuple(data[(g * 3 + GAME_RGB_INDEX[c]) * GAME_PLANE + k.rgbtab]
+                        if (g * 3 + GAME_RGB_INDEX[c]) * GAME_PLANE + k.rgbtab < len(data) else 0 for c in range(3))
+            if any(rgb):
+                lit.append((k.name, rgb))
+        groups.append(lit)
+    return groups
+
+
+def game_dump() -> int:
+    """Doar citire: ce conține memoria Game mode (0xBC00-0xC3FF)."""
+    from .kblearn import KbLink
+
+    link = KbLink()
+    try:
+        data = link.read_page(0xBC00) + link.read_page(0xC000)
+    finally:
+        link.close()
+    lines = [f"Game mode, memoria 0xBC00 (2048 bytes): {sum(1 for b in data if b)} bytes nenuli"]
+    for g, lit in enumerate(decode_game_groups(data)):
+        keys = ", ".join(f"{n}=#{r:02x}{gg:02x}{b:02x}" for n, (r, gg, b) in lit[:30])
+        lines.append(f"  grup {g + 1}: {len(lit)} taste aprinse" + (f": {keys}" if lit else ""))
+    nz = [i for i, b in enumerate(data) if b]
+    if nz:
+        runs, start, prev = [], nz[0], nz[0]
+        for i in nz[1:]:
+            if i - prev > 4:
+                runs.append((start, prev))
+                start = i
+            prev = i
+        runs.append((start, prev))
+        lines.append("  zone nenule: " + ", ".join(f"{0xBC00 + a:#06x}-{0xBC00 + b:#06x}" for a, b in runs[:20]))
+        lines.append("  primii bytes: " + data[:96].hex(" "))
+    Path("kbgame.txt").write_text("\n".join(lines), encoding="utf-8")
+    print("\n".join(lines) + f"\n\nTrimite-mi textul de mai sus (e și în {Path('kbgame.txt').resolve()}).")
+    return 0
+
+
 def _ask(text: str) -> bool:
     try:
         return input(f"{text} (scrie d = da / n = nu, apoi Enter): ").strip().lower() in ("d", "da", "y")
@@ -225,6 +275,8 @@ def run(step: str, value: int = -1) -> int:
     if sys.platform != "win32":
         print("Testul funcționează doar pe Windows.")
         return 1
+    if step == "game":
+        return game_dump()
     if step == "color":
         return color_test(value if value >= 0 else 1)
     if step == "mode":
