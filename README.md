@@ -11,7 +11,8 @@ polling rate-ul** mouse-ului și arată **bateria** mouse-ului și a căștilor 
 | Benzi / lămpi **Govee** | API-ul LAN oficial, găsite automat |
 | Becuri / benzi **Tuya** („Smart Life”, „Tuya Smart”) | protocolul local Tuya, prin `tinytuya` |
 | **Logitech G502 LIGHTSPEED**, **G733** | lumini: LED SDK din G HUB; **baterie, DPI, polling rate**: HID++ 2.0 direct |
-| **Placa de bază** (ASUS Aura, MSI Mystic Light, Gigabyte RGB Fusion, ASRock), RAM, GPU, coolere | prin serverul SDK al **OpenRGB** |
+| **Placa de bază** (ASUS Aura, MSI Mystic Light, Gigabyte RGB Fusion, ASRock), GPU, coolere | prin serverul SDK al **OpenRGB** |
+| **Memorii RAM RGB** (Kingston FURY Beast/Renegade RGB și altele) | prin **OpenRGB**; toate plăcuțele se controlează împreună |
 
 ## Instalare
 
@@ -43,7 +44,7 @@ fundal. Pornește-l din nou ca să redeschizi fereastra. Ca să-l oprești de to
 | Tab | Ce poți face |
 |---|---|
 | **Live** | starea jocului (viață, armură, gloanțe, bombă), ce afișează fiecare dispozitiv chiar acum, și butoane de **simulare** (bombă, flash, mort ...) ca să vezi efectele fără CS2 |
-| **Dispozitive** | **Scanează** (tastatură, placă de bază, Logitech, WLED, Govee, Tuya, OpenRGB) și adaugă cu un click; pentru fiecare dispozitiv: activ, nume, efect, luminozitate, **Identifică** (se aprinde roșu/verde/albastru/alb), ordinea, JSON avansat |
+| **Dispozitive** | **Scanează** (tastatură, placă de bază, memorii RAM, Logitech, WLED, Govee, Tuya, OpenRGB) și adaugă cu un click; pentru fiecare dispozitiv: activ, nume, efect, luminozitate, **Identifică** (se aprinde roșu/verde/albastru/alb), ordinea, JSON avansat |
 | **Mouse & căști** | baterie (procent, se încarcă, tensiune), **DPI**, **polling rate**, mod host/onboard, „aplică la fiecare pornire” |
 | **Culori** | culorile pentru T, CT, bombă, armură, kill, headshot etc. |
 | **Setări** | FPS, luminozitate globală, port GSI și token, **Instalează cfg în CS2**, editor JSON, oprire |
@@ -64,8 +65,12 @@ Totul se salvează în `aicolors.json` și se aplică imediat, fără restart.
   își poate aplica propriul profil (și per joc) peste DPI-ul setat de AI Colors. Atunci setează
   aceleași valori și în G HUB, sau bifează **Mod host** în AI Colors (mouse-ul nu mai folosește
   profilurile din memoria lui).
-* **Placa de bază**: instalează [OpenRGB](https://openrgb.org), pornește-l, apoi în tab-ul
-  *SDK Server* apasă *Start Server* (sau `OpenRGB.exe --server --startminimized`).
+* **Placa de bază**: instalează [OpenRGB](https://openrgb.org), pornește-l **ca administrator**,
+  apoi în tab-ul *SDK Server* apasă *Start Server* (sau `OpenRGB.exe --server --startminimized`).
+* **Memorii Kingston FURY RGB**: tot prin OpenRGB, ca placa de bază. Închide **Kingston FURY CTRL**,
+  dacă îl ai. În OpenRGB apar ca „Kingston Fury DDR4/DDR5 DRAM”, câte una pe plăcuță; AI Colors le
+  ia pe toate ca un singur dispozitiv (`"device_type": "dram"`). Cu efectul `health`, bara de viață
+  se întinde peste toate plăcuțele.
 
 ## Becuri Tuya / Smart Life
 

@@ -13,6 +13,7 @@
     {"type": "logitech", "target": "mouse", "effect": "ambient", "name": "G502"},
     {"type": "logitech", "target": "headset", "effect": "health", "name": "G733"},
     {"type": "openrgb", "device_type": "motherboard", "effect": "ambient", "brightness": 0.7},
+    {"type": "openrgb", "device_type": "dram", "all": true, "effect": "ambient", "name": "Memorii RAM"},
     {"type": "tuya", "id": "bf0123456789abcdef", "effect": "ambient", "name": "Bec birou", "enabled": false},
     {"type": "openrgb", "match": "Corsair", "effect": "ammo", "enabled": false}
   ]

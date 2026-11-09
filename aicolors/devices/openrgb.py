@@ -158,41 +158,59 @@ class OpenRGBClient:
         self.sock.close()
 
 
+def matches(c: Controller, match: Optional[str] = None, dtype: Optional[str] = None,
+            index: Optional[int] = None) -> bool:
+    if index is not None and c.index != index:
+        return False
+    if dtype and c.type != dtype:
+        return False
+    if match and match.lower() not in f"{c.name} {c.description}".lower():
+        return False
+    return True
+
+
 def select(controllers: List[Controller], match: Optional[str] = None, dtype: Optional[str] = None,
-           index: Optional[int] = None) -> Controller:
-    for c in controllers:
-        if index is not None and c.index != index:
-            continue
-        if dtype and c.type != dtype:
-            continue
-        if match and match.lower() not in f"{c.name} {c.description}".lower():
-            continue
-        return c
-    raise DeviceError(f"niciun controller OpenRGB pentru match={match!r} device_type={dtype!r} index={index!r}")
+           index: Optional[int] = None, all_matches: bool = False) -> List[Controller]:
+    """Controller-ele potrivite: primul, sau toate (ex. toate plăcuțele de RAM)."""
+    found = [c for c in controllers if matches(c, match, dtype, index) and c.leds > 0]
+    if not found:
+        raise DeviceError(f"niciun controller OpenRGB cu LED-uri pentru match={match!r} "
+                          f"device_type={dtype!r} index={index!r}")
+    return found if all_matches else found[:1]
 
 
 class OpenRGBDevice(Device):
+    """Unul sau mai multe controller-e OpenRGB, văzute ca o singură bandă de LED-uri."""
+
     kind = "openrgb"
     min_interval = 0.03
     keepalive = 2.0
 
     def __init__(self, host: str = "127.0.0.1", port: int = DEFAULT_PORT, match: Optional[str] = None,
-                 device_type: Optional[str] = None, index: Optional[int] = None):
+                 device_type: Optional[str] = None, index: Optional[int] = None,
+                 all_matches: bool = False, name: Optional[str] = None):
         self.client = OpenRGBClient(host, port)
         try:
-            ctrl = select(self.client.controllers(), match, device_type, index)
-            if ctrl.leds == 0:
-                raise DeviceError(f"{ctrl.name} nu are LED-uri controlabile")
-            self.client.set_custom_mode(ctrl.index)
+            ctrls = select(self.client.controllers(), match, device_type, index, all_matches)
+            for c in ctrls:
+                self.client.set_custom_mode(c.index)
         except Exception:
             self.client.close()
             raise
-        super().__init__(ctrl.name, ctrl.leds)
-        self.controller = ctrl
+        label = name or (ctrls[0].name if len(ctrls) == 1 else f"{ctrls[0].name} x{len(ctrls)}")
+        super().__init__(label, sum(c.leds for c in ctrls))
+        self.controllers = ctrls
+
+    @property
+    def controller(self) -> Controller:
+        return self.controllers[0]
 
     def send(self, colors: Sequence[RGB]) -> None:
         try:
-            self.client.update_leds(self.controller.index, colors)
+            pos = 0
+            for c in self.controllers:
+                self.client.update_leds(c.index, colors[pos:pos + c.leds])
+                pos += c.leds
         except OSError as exc:
             raise DeviceError(f"OpenRGB: {exc}") from exc
 
@@ -201,8 +219,10 @@ class OpenRGBDevice(Device):
 
 
 def from_config(entry: dict) -> Device:
+    dtype = entry.get("device_type")
     return OpenRGBDevice(entry.get("host", "127.0.0.1"), entry.get("port", DEFAULT_PORT),
-                         entry.get("match"), entry.get("device_type"), entry.get("index"))
+                         entry.get("match"), dtype, entry.get("index"),
+                         all_matches=bool(entry.get("all", dtype == "dram")), name=entry.get("name"))
 
 
 def discover(host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> List[Found]:
@@ -212,14 +232,29 @@ def discover(host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> List[Found]:
         return []
     try:
         found = []
-        for c in client.controllers():
+        ctrls = client.controllers()
+        drams = [c for c in ctrls if c.type == "dram" and c.leds > 0]
+        if drams:
+            found.append(Found(
+                "openrgb:dram", f"Memorii RAM: {drams[0].name}" + (f" x{len(drams)}" if len(drams) > 1 else ""),
+                address=f"{host}:{port} #" + ",".join(str(c.index) for c in drams),
+                details=f"{sum(c.leds for c in drams)} LED-uri în {len(drams)} plăcuțe",
+                config={"type": "openrgb", "device_type": "dram", "all": True, "effect": "ambient",
+                        "name": "Memorii RAM"},
+            ))
+        names = [c.name for c in ctrls]
+        for c in ctrls:
+            if c.type == "dram" and c.leds > 0:
+                continue
             zones = ", ".join(f"{z} ({n})" for z, n in c.zones) or "-"
             effect = {"motherboard": "ambient", "ledstrip": "health", "keyboard": "health",
                       "mouse": "ambient", "headset": "ambient"}.get(c.type, "ambient")
+            config = {"type": "openrgb", "match": c.name, "device_type": c.type, "effect": effect}
+            if names.count(c.name) > 1:
+                config["index"] = c.index
             found.append(Found(
                 f"openrgb:{c.type}", c.name, address=f"{host}:{port} #{c.index}",
-                details=f"{c.leds} LED-uri; zone: {zones}", controllable=c.leds > 0,
-                config={"type": "openrgb", "match": c.name, "device_type": c.type, "effect": effect},
+                details=f"{c.leds} LED-uri; zone: {zones}", controllable=c.leds > 0, config=config,
             ))
         return found
     finally:

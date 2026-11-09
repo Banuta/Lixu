@@ -13,11 +13,12 @@ log = logging.getLogger(__name__)
 
 def _sources(timeout: float, subnet: Optional[str], openrgb_host: str) -> Dict[str, Callable[[], List[Found]]]:
     from ..devices import govee, logitech, openrgb, tuya, wled, zenkabeat
-    from . import motherboard
+    from . import memory, motherboard
 
     return {
         "Tastatura ZENKABEAT": zenkabeat.discover,
         "Placa de bază": motherboard.discover,
+        "Memorii RAM": memory.discover,
         "Logitech (G HUB)": logitech.discover,
         "OpenRGB": lambda: openrgb.discover(openrgb_host),
         "WLED (ESP32)": lambda: wled.discover(timeout, subnet),

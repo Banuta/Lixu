@@ -69,8 +69,9 @@ def fake_controller(ctype=0, name="ASUS ROG STRIX B550-F", leds=3):
 
 
 class FakeOpenRGB(threading.Thread):
-    def __init__(self):
+    def __init__(self, controllers=None):
         super().__init__(daemon=True)
+        self.controllers = controllers or [fake_controller()]
         self.srv = socket.socket()
         self.srv.bind(("127.0.0.1", 0))
         self.srv.listen(1)
@@ -94,11 +95,11 @@ class FakeOpenRGB(threading.Thread):
                     data += conn.recv(size - len(data))
                 self.received.append((dev, pkt, data))
                 if pkt == openrgb.REQUEST_CONTROLLER_COUNT:
-                    reply = struct.pack("<I", 1)
+                    reply = struct.pack("<I", len(self.controllers))
                 elif pkt == openrgb.REQUEST_CONTROLLER_DATA:
                     # notificare asincronă înainte de răspuns: clientul trebuie s-o ignore
                     conn.sendall(b"ORGB" + struct.pack("<III", 0, openrgb.DEVICE_LIST_UPDATED, 0))
-                    reply = fake_controller()
+                    reply = self.controllers[dev]
                 else:
                     continue
                 conn.sendall(b"ORGB" + struct.pack("<III", dev, pkt, len(reply)) + reply)
@@ -126,6 +127,54 @@ class OpenRGBTest(unittest.TestCase):
         self.assertEqual(pkts, [openrgb.SET_CLIENT_NAME, openrgb.REQUEST_CONTROLLER_COUNT,
                                 openrgb.REQUEST_CONTROLLER_DATA, openrgb.SET_CUSTOM_MODE, openrgb.UPDATE_LEDS])
         self.assertEqual(srv.received[-1][2], openrgb.update_leds_payload([(9, 8, 7)] * 3))
+
+
+class OpenRGBRamTest(unittest.TestCase):
+    STICKS = [fake_controller(1, "Kingston Fury DDR4 RGB", 5), fake_controller(1, "Kingston Fury DDR4 RGB", 5),
+              fake_controller(0, "ASRock B450M Pro4 R2.0", 3)]
+
+    def test_all_sticks_as_one_device(self):
+        srv = FakeOpenRGB(self.STICKS)
+        srv.start()
+        dev = openrgb.from_config({"type": "openrgb", "device_type": "dram", "port": srv.port})
+        self.assertEqual((dev.led_count, len(dev.controllers)), (10, 2))
+        self.assertIn("x2", dev.name)
+        dev.send([(i, 0, 0) for i in range(10)])
+        dev.close()
+        srv.join(2)
+        updates = [(d, data) for d, p, data in srv.received if p == openrgb.UPDATE_LEDS]
+        self.assertEqual([d for d, _ in updates], [0, 1])
+        self.assertEqual(updates[1][1], openrgb.update_leds_payload([(i, 0, 0) for i in range(5, 10)]))
+        modes = [d for d, p, _ in srv.received if p == openrgb.SET_CUSTOM_MODE]
+        self.assertEqual(modes, [0, 1])
+
+    def test_discover_groups_ram(self):
+        srv = FakeOpenRGB(self.STICKS)
+        srv.start()
+        found = openrgb.discover(port=srv.port)
+        srv.join(2)
+        self.assertEqual(found[0].kind, "openrgb:dram")
+        self.assertIn("x2", found[0].name)
+        self.assertEqual(found[0].config["device_type"], "dram")
+        self.assertTrue(found[0].config["all"])
+        self.assertEqual(found[1].config["device_type"], "motherboard")
+
+
+class MemoryDiscoveryTest(unittest.TestCase):
+    def test_kingston_fury(self):
+        from aicolors.discovery import memory
+
+        mods = memory.parse_modules(json.dumps([
+            {"DeviceLocator": "DIMM 0", "Manufacturer": "Kingston", "PartNumber": "KF436C17BBA/8 ",
+             "Capacity": 8589934592, "ConfiguredClockSpeed": 3600},
+            {"DeviceLocator": "DIMM 1", "Manufacturer": "Kingston", "PartNumber": "KF436C17BBA/8 ",
+             "Capacity": 8589934592, "ConfiguredClockSpeed": 3600}]))
+        f = memory.describe(mods)[0]
+        self.assertIn("Kingston FURY KF436C17BBA/8", f.name)
+        self.assertIn("16 GB, 3600 MT/s, RGB", f.details)
+        self.assertTrue(any("OpenRGB" in n for n in f.notes))
+        self.assertEqual(memory.parse_modules('{"PartNumber": "X"}'), [{"PartNumber": "X"}])
+        self.assertEqual(memory.describe([]), [])
 
 
 class MdnsTest(unittest.TestCase):
