@@ -432,7 +432,9 @@ class GoveeSegmentsTest(unittest.TestCase):
         self.assertEqual(on, {"cmd": "razer", "data": {"pt": "uwABsQEK"}})
         self.assertEqual(json.loads(govee.razer_enable(False))["msg"]["data"]["pt"], "uwABsQAL")
         raw = base64.b64decode(json.loads(govee.razer_frame([(255, 0, 0), (0, 0, 255)]))["msg"]["data"]["pt"])
-        self.assertEqual(raw[:6], bytes((0xBB, 0x00, 8, 0xB0, 0x00, 2)))
+        self.assertEqual(raw[:6], bytes((0xBB, 0x00, 8, 0xB0, 0x01, 2)))  # 0x01 = segmente separate
+        grad = base64.b64decode(json.loads(govee.razer_frame([(1, 1, 1)], gradient=True))["msg"]["data"]["pt"])
+        self.assertEqual(grad[4], 0x00)
         self.assertEqual(raw[6:12], bytes((255, 0, 0, 0, 0, 255)))
         x = 0
         for b in raw[:-1]:

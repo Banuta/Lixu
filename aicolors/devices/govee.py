@@ -34,6 +34,9 @@ from .base import Device, DeviceError, Found, average
 
 log = logging.getLogger(__name__)
 
+# Câte puncte de culoare are fiecare model în modul pe segmente (din tabela OpenRGB).
+SEGMENTS_BY_SKU = {"H619A": 20}
+
 MULTICAST = ("239.255.255.250", 4001)
 LISTEN_PORT = 4002
 CONTROL_PORT = 4003
@@ -62,10 +65,12 @@ def razer_enable(on: bool = True) -> bytes:
 
 
 def razer_frame(colors: Sequence[RGB], gradient: bool = False) -> bytes:
+    """Octetul de după B0: 0x01 = culori separate pe segmente, 0x00 = degrade (ca în OpenRGB,
+    unde e marcat „gradient_off = 1”)."""
     n = len(colors)
     if not 0 < n <= 80:
         raise ValueError("între 1 și 80 de segmente")
-    body = bytes((0x01 if gradient else 0x00, n)) + bytes(int(v) & 0xFF for c in colors for v in c)
+    body = bytes((0x00 if gradient else 0x01, n)) + bytes(int(v) & 0xFF for c in colors for v in c)
     return _razer(bytes((len(body), 0xB0)) + body)
 
 
@@ -174,10 +179,13 @@ def discover(timeout: float = 2.0) -> List[Found]:
                 d = msg.get("data", {})
                 ip = d.get("ip", src)
                 sku = d.get("sku", "Govee")
+                config = {"type": "govee", "host": ip, "name": f"Govee {sku}", "effect": "ambient"}
+                segs = SEGMENTS_BY_SKU.get(str(sku).upper())
+                if segs:
+                    config.update(segments=segs, effect="health")
                 found[ip] = Found("govee", f"Govee {sku}", address=ip,
-                                  details=f"id {d.get('device', '?')}",
-                                  config={"type": "govee", "host": ip, "name": f"Govee {sku}",
-                                          "effect": "ambient"})
+                                  details=f"id {d.get('device', '?')}" + (f", {segs} segmente" if segs else ""),
+                                  config=config)
         finally:
             tx.close()
         return list(found.values())

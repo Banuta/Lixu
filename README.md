@@ -149,10 +149,11 @@ Câte o linie per dispozitiv:
 | `segments` | numărul de segmente ale benzii; fiecare segment primește culoarea lui (modul DreamView din API-ul LAN) |
 | `groups` | listă de grupuri de segmente (numerotate de la 0); fiecare grup e o „lumină”: cu `health`, bara de viață merge pe grupuri, în ordinea scrisă |
 | `hosts` | mai multe dispozitive Govee controlate împreună, ca un grup din aplicația Govee |
-| `gradient` | `true` = Govee face trecere lină între segmente |
+| `gradient` | `true` = Govee face trecere lină între segmente (implicit: fiecare segment culoarea lui) |
 | `device_brightness` | luminozitatea dispozitivului, 1-100 |
 
-Segmentele care nu apar în niciun grup rămân stinse. Fără `segments`, toată banda are o singură
+H619A are 20 de segmente (la scanare se completează singur). Segmentele care nu apar în niciun grup
+rămân stinse. Fără `segments`, toată banda are o singură
 culoare (comanda clasică `colorwc`). Când AI Colors se oprește, banda iese din modul pe segmente
 și revine la ce avea.
 
