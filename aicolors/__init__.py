@@ -1,3 +1,3 @@
 """AI Colors - lumini CS2 (Game State Integration) pentru tastatură, placă de bază, Logitech, WLED și Govee."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"

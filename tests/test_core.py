@@ -236,3 +236,20 @@ class ProfileWriteTest(unittest.TestCase):
         self.assertEqual(pkt[8 + 0x0D], 0x0D)
         with self.assertRaises(ValueError):
             protocol.profile_write_packet(0x02, bytes(254))
+
+
+class IconTest(unittest.TestCase):
+    def test_ico_structure(self):
+        import struct
+
+        from aicolors import icon
+
+        data = icon.ico_bytes()
+        reserved, kind, count = struct.unpack("<HHH", data[:6])
+        self.assertEqual((reserved, kind, count), (0, 1, len(icon.SIZES)))
+        w, h, _, _, planes, bpp, size, offset = struct.unpack("<BBBBHHII", data[6:22])
+        self.assertEqual((w, h, planes, bpp), (16, 16, 1, 32))
+        self.assertEqual(struct.unpack("<I", data[offset:offset + 4])[0], 40)
+        px = icon.pixels(16)
+        self.assertEqual(px[0][3], 0)                 # colț transparent
+        self.assertEqual(px[8 * 16 + 8][:3], (24, 26, 32))  # centrul închis

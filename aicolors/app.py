@@ -89,7 +89,7 @@ class App:
         effects.apply_palette(cfg.colors)
         self.store = StateStore()
         self.engine = Engine(cfg.active_devices, self.store, fps=cfg.fps, idle_fps=cfg.idle_fps,
-                             brightness=cfg.brightness, dry_run=dry_run, preview=preview)
+                             brightness=cfg.brightness, dry_run=dry_run, preview=preview, workers=True)
         self.gsi = GsiServer(self.store, host=cfg.host, port=cfg.port, token=cfg.token)
         self.peripherals = None
         if cfg.peripherals.get("enabled", True) and not dry_run:
@@ -125,6 +125,13 @@ class App:
                 openrgb_setup.start()
         except Exception as exc:
             log.warning("OpenRGB: %s", exc)
+
+    def autostart(self, enabled: Optional[bool]) -> Dict[str, Any]:
+        from . import autostart
+
+        if enabled is not None:
+            autostart.set_enabled(bool(enabled), self.cfg.path)
+        return {"enabled": autostart.is_enabled(), "available": sys.platform == "win32"}
 
     def openrgb(self, action: str) -> Dict[str, Any]:
         from . import openrgb_setup
@@ -281,6 +288,15 @@ def make_ui_handler(app: App):
 
         def do_GET(self) -> None:  # noqa: N802
             path = self.path.split("?")[0]
+            if path in ("/favicon.ico", "/aicolors.ico") and (UI_DIR / "aicolors.ico").exists():
+                body = (UI_DIR / "aicolors.ico").read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/x-icon")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "max-age=86400")
+                self.end_headers()
+                self.wfile.write(body)
+                return
             if path in ("/", "/index.html"):
                 body = index.read_bytes()
                 self.send_response(200)
@@ -317,6 +333,7 @@ def make_ui_handler(app: App):
                 "/api/mouse": lambda: app.mouse(data),
                 "/api/openrgb": lambda: app.openrgb(data.get("action", "status")),
                 "/api/tuya/keys": lambda: app.tuya_keys(data),
+                "/api/autostart": lambda: app.autostart(data.get("enabled")),
                 "/api/kbmode": lambda: app.engine.keyboard_preview(data.get("value")),
                 "/api/quit": lambda: (threading.Timer(0.3, app.engine.stop).start(), {"ok": True})[1],
                 "/api/peripherals/refresh": lambda: (app.peripherals and app.peripherals.refresh(), {"ok": True})[1],
@@ -351,7 +368,8 @@ def open_window(url: str) -> None:
         if exe and os.path.isfile(exe):
             try:
                 subprocess.Popen([exe, f"--app={url}", "--window-size=1180,820"],
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
                 return
             except OSError:
                 continue

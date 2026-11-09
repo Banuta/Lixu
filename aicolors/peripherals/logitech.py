@@ -243,3 +243,19 @@ class PeripheralMonitor:
 
     def snapshot(self) -> Dict:
         return {"note": self.note, "devices": [i.to_dict() for i in self.info.values()]}
+
+
+def battery_warnings(snapshot: Dict, already: Dict[str, bool], threshold: int = 15) -> List[str]:
+    """Mesaje noi de baterie slabă (o singură dată până la următoarea încărcare)."""
+    out = []
+    for d in snapshot.get("devices", []):
+        key, bat = d.get("id"), d.get("battery")
+        if bat is None or not d.get("online"):
+            continue
+        if bat <= threshold and not d.get("charging"):
+            if not already.get(key):
+                already[key] = True
+                out.append(f"{d.get('name')}: baterie {bat}%")
+        elif bat > threshold + 5 or d.get("charging"):
+            already[key] = False
+    return out

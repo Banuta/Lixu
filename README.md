@@ -32,12 +32,24 @@ pip install .
 aicolors
 ```
 
-Sau dublu-click pe `start-aicolors.bat`.
+Sau dublu-click pe `start-aicolors.bat` (pornește fără nicio fereastră `cmd`).
 
-`aicolors` fără argumente pornește aplicația și deschide interfața într-o fereastră proprie
-(Edge/Chrome în mod aplicație). Poți închide fereastra oricând: AI Colors rulează mai departe în
-fundal. Pornește-l din nou ca să redeschizi fereastra. Ca să-l oprești de tot, folosește
-**Setări -> Oprește AI Colors**.
+## Lângă ceas
+
+AI Colors stă în bara de lângă ceas, fără ferestre `cmd`:
+
+* **click** pe iconiță: deschide fereastra cu setări (o poți închide oricând, AI Colors rulează mai departe);
+* **click dreapta**: Deschide, **Pauză lumini** (dispozitivele revin la efectele lor), **Pornește odată
+  cu Windows**, **Ieșire**;
+* tooltip-ul arată dacă CS2 e conectat și câte dispozitive merg;
+* primești o notificare când bateria mouse-ului sau a căștilor scade sub 15%.
+
+Dublu-click pe `AIColors.exe` deschide și fereastra; dacă AI Colors rulează deja, doar o deschide.
+Pornit cu Windows (bifa din meniu sau din Setări -> Pornire), apare direct lângă ceas, fără fereastră.
+Din linia de comandă: `aicolors app --tray` (doar lângă ceas), `aicolors app --no-tray` (fără iconiță).
+
+Fiecare dispozitiv are firul lui de lucru: un dispozitiv care nu răspunde (bec oprit, mouse adormit)
+nu mai blochează interfața sau celelalte lumini.
 
 ## Interfața
 

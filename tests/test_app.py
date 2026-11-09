@@ -359,3 +359,18 @@ class TuyaCloudTest(unittest.TestCase):
                     else:
                         os.environ[k] = v
                 sys.modules.pop("tinytuya", None)
+
+
+class BatteryWarningTest(unittest.TestCase):
+    def test_warn_once_until_recharged(self):
+        from aicolors.peripherals.logitech import battery_warnings
+
+        seen = {}
+        snap = {"devices": [{"id": "m", "name": "G502", "battery": 12, "online": True, "charging": False},
+                            {"id": "h", "name": "G733", "battery": 80, "online": True, "charging": False}]}
+        self.assertEqual(battery_warnings(snap, seen), ["G502: baterie 12%"])
+        self.assertEqual(battery_warnings(snap, seen), [])
+        snap["devices"][0].update(battery=12, charging=True)
+        self.assertEqual(battery_warnings(snap, seen), [])
+        snap["devices"][0].update(battery=10, charging=False)
+        self.assertEqual(battery_warnings(snap, seen), ["G502: baterie 10%"])

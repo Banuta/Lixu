@@ -1,4 +1,4 @@
 @echo off
-rem Porneste aicolors cu interfata, cu prioritate scazuta (nu fura FPS din CS2)
+rem Porneste AI Colors fara consola (pythonw), direct langa ceas
 cd /d "%~dp0"
-start "AI Colors" /min /belownormal python -m aicolors app
+where pythonw >nul 2>nul && (start "" /belownormal pythonw -m aicolors app) || (start "" /min /belownormal python -m aicolors app)

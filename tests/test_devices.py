@@ -443,3 +443,55 @@ class GoveeSegmentsTest(unittest.TestCase):
             govee.GoveeDevice()
         d = create_device({"type": "govee", "host": "x", "segments": 15, "groups": [[0], [1], [2]]}, dry_run=True)
         self.assertEqual(d.led_count, 3)
+
+
+class EngineNoHangTest(unittest.TestCase):
+    def test_slow_device_does_not_block_ui_or_others(self):
+        import aicolors.engine as engmod
+        from aicolors.devices.base import Device
+
+        class Fast(Device):
+            keepalive = 0.2
+
+            def __init__(self):
+                super().__init__("rapid", 3)
+                self.frames = 0
+
+            def send(self, colors):
+                self.frames += 1
+
+        class SlowSend(Device):
+            def __init__(self):
+                super().__init__("lent", 1)
+
+            def send(self, colors):
+                time.sleep(3)
+
+        fast = Fast()
+
+        def fake_create(entry, dry_run=False, preview=False):
+            if entry["type"] == "slowconnect":
+                time.sleep(3)
+                raise OSError("nu răspunde")
+            return {"fast": lambda: fast, "slowsend": SlowSend}[entry["type"]]()
+
+        orig = engmod.create_device
+        engmod.create_device = fake_create
+        try:
+            store = StateStore()
+            eng = Engine([{"type": "slowconnect"}, {"type": "slowsend"}, {"type": "fast"}], store,
+                         workers=True)
+            t = threading.Thread(target=eng.run)
+            t.start()
+            store.update(LIVE)
+            time.sleep(1.0)
+            t0 = time.time()
+            snap = eng.snapshot()                       # interfața: răspuns imediat
+            self.assertLess(time.time() - t0, 0.1)
+            self.assertEqual([s["connected"] for s in snap], [False, True, True])
+            self.assertGreaterEqual(fast.frames, 2)     # luminile rapide merg mai departe
+            eng.stop()
+            t.join(10)
+            self.assertFalse(t.is_alive())
+        finally:
+            engmod.create_device = orig

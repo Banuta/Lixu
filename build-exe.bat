@@ -9,7 +9,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-python -m PyInstaller --noconfirm --clean --onefile --noconsole --name AIColors ^
+python -m PyInstaller --noconfirm --clean --onefile --noconsole --name AIColors --icon "aicolors\ui\aicolors.ico" ^
   --add-data "aicolors\ui;aicolors\ui" ^
   --collect-submodules aicolors ^
   --collect-all tinytuya ^

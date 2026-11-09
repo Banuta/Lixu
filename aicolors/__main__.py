@@ -87,10 +87,23 @@ def cmd_app(args) -> int:
         log.warning("Nu pot porni (%s). Deschid interfața existentă.", exc)
         open_window(f"http://127.0.0.1:{configmod.load(args.config).ui_port}/")
         return 0
-    open_window(app.ui_url)
     log.info("AI Colors rulează. Interfața: %s", app.ui_url)
+    first_run = app.cfg.path is None or not Path(app.cfg.path).exists()
+    use_tray = sys.platform == "win32" and not args.no_tray
+    if not args.tray or first_run or not use_tray:
+        open_window(app.ui_url)
     try:
-        app.wait()
+        if use_tray:
+            from .app import UI_DIR
+            from .icon import write_ico
+            from .tray import run_tray
+
+            icon = UI_DIR / "aicolors.ico"
+            if not icon.exists():
+                icon = write_ico(configmod.user_config_path().parent / "aicolors.ico")
+            run_tray(app, open_window, icon, quiet=args.tray)
+        else:
+            app.wait()
     except KeyboardInterrupt:
         pass
     finally:
@@ -342,6 +355,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
 
     a = sub.add_parser("app", help="aplicația cu interfață (implicit)")
+    a.add_argument("--tray", action="store_true", help="pornește doar lângă ceas, fără fereastră")
+    a.add_argument("--no-tray", action="store_true", help="fără iconiță lângă ceas")
     _common(a)
     a.set_defaults(func=cmd_app)
 

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Colors</title>
+<link rel="icon" href="/favicon.ico">
 <!--
   Interfața aicolors. Un singur fișier, fără biblioteci externe: modifică liber.
   Vorbește cu aplicația prin /api/* (vezi aicolors/app.py).
@@ -221,6 +222,13 @@
         <div id="tuyaResult" class="muted" style="font-size:12px"></div>
       </div>
       <div class="card">
+        <h2>Pornire</h2>
+        <div class="row"><label style="min-width:0"><input type="checkbox" id="autoStart"> pornește AI Colors odată cu
+          Windows (direct lângă ceas, fără fereastră)</label></div>
+        <p class="muted" style="font-size:12px">AI Colors stă lângă ceas: click pe iconiță deschide fereastra asta, click
+          dreapta are Pauză și Ieșire. Poți închide fereastra oricând.</p>
+      </div>
+      <div class="card">
         <h2>Config</h2>
         <p class="muted" id="cfgPath"></p>
         <details><summary>Editează JSON-ul direct</summary>
@@ -273,7 +281,10 @@ const LABELS = {
 document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("active", x === b));
   document.querySelectorAll("main section").forEach(s => s.classList.toggle("active", s.id === b.dataset.tab));
-  if (b.dataset.tab === "settings") { $("#rawJson").value = JSON.stringify(cfg, null, 2); openrgb("status").catch(() => {}); }
+  if (b.dataset.tab === "settings") {
+    $("#rawJson").value = JSON.stringify(cfg, null, 2); openrgb("status").catch(() => {});
+    api("/api/autostart", {}).then(r => { $("#autoStart").checked = r.enabled; $("#autoStart").disabled = !r.available; }).catch(() => {});
+  }
 });
 
 // ------------------------------------------------------------------ LIVE
@@ -539,6 +550,11 @@ $("#orgbStart").onclick = async () => {
         setTimeout(() => openrgb("status"), 6000); } catch {}
 };
 bind("#orgbAuto", t => cfg.openrgb = Object.assign({}, cfg.openrgb, {autostart: t.checked}));
+$("#autoStart").onchange = async e => {
+  try { const r = await api("/api/autostart", {enabled: e.target.checked}); e.target.checked = r.enabled;
+        toast(r.enabled ? "Pornește odată cu Windows" : "Nu mai pornește cu Windows"); }
+  catch (err) { toast("Eroare: " + err.message, 5000); e.target.checked = !e.target.checked; }
+};
 $("#tuyaFetch").onclick = async () => {
   $("#tuyaResult").textContent = "mă conectez la Tuya...";
   try {
