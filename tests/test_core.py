@@ -199,3 +199,15 @@ class KbTestTableTest(unittest.TestCase):
         self.assertTrue(kbtest.is_all_red(red, 20))
         self.assertEqual(red[20 * 21:], table[20 * 21:])  # restul tabelei nu se atinge
         self.assertFalse(kbtest.is_all_red(table, 20))
+
+
+class KbLearnDiffTest(unittest.TestCase):
+    def test_diff(self):
+        from aicolors import kblearn
+
+        a = {"profil0": "00" * 20, "paleta_B8": "11" * 20}
+        b = {"profil0": "00" * 5 + "07" + "00" * 14, "paleta_B8": "11" * 20}
+        lines = kblearn.diff(a, b)
+        self.assertEqual(len(lines), 1)
+        self.assertIn("profil0: 1 bytes: [5] 00->07", lines[0])
+        self.assertIn("nimic", kblearn.diff(a, a)[0])
