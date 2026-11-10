@@ -374,6 +374,8 @@ def make_ui_handler(app: App):
                 "/api/openrgb": lambda: app.openrgb(data.get("action", "status")),
                 "/api/tuya/keys": lambda: app.tuya_keys(data),
                 "/api/autostart": lambda: app.autostart(data.get("enabled")),
+                "/api/signalrgb/test": lambda: {"ok": True, "results": __import__(
+                    "aicolors.devices.signalrgb", fromlist=["x"]).test_hosts()},
                 "/api/signalrgb/install": lambda: {"ok": True, "path": str(
                     __import__("aicolors.devices.signalrgb", fromlist=["x"]).install_effect())},
                 "/api/kbmode": lambda: app.engine.keyboard_preview(data.get("value")),

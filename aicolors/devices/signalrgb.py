@@ -107,20 +107,44 @@ def event_text(colors: Sequence[RGB]) -> str:
     return "c|" + "|".join(_hexes(colors))
 
 
-def post_event(event: str, host: str = "localhost", port: int = EVENT_PORT,
+# PowerShell (care merge la utilizator) folosește „localhost” = ::1 întâi; SignalRGB poate
+# asculta doar pe IPv6 sau doar pe IPv4, deci le încercăm pe toate și o ținem minte pe cea bună.
+HOSTS = ("::1", "127.0.0.1", "localhost")
+
+
+def event_url(event: str) -> str:
+    # ca PowerShell: | , : rămân necodate (SignalRGB le primește sigur așa)
+    q = lambda v: urllib.parse.quote(v, safe="|,:.")
+    return f"/canvas/event?sender={q(SENDER)}&event={q(event)}"
+
+
+def post_event(event: str, host: str = "::1", port: int = EVENT_PORT,
                timeout: float = 0.5) -> int:
     """Trimite un eveniment către efectul SignalRGB activ; întoarce codul HTTP."""
-    query = urllib.parse.urlencode({"sender": SENDER, "event": event})
     conn = http.client.HTTPConnection(host, port, timeout=timeout)
     try:
-        conn.request("POST", "/canvas/event?" + query, body=b"",
-                     headers={"Content-Length": "0",
+        conn.request("POST", event_url(event), body=b"",
+                     headers={"Content-Length": "0", "Host": f"localhost:{port}",
                               "Content-Type": "application/x-www-form-urlencoded"})
         resp = conn.getresponse()
         resp.read()
         return resp.status
     finally:
         conn.close()
+
+
+def test_hosts(event: str = "z|1|0,0,100,100,0:ff0000", port: int = EVENT_PORT) -> List[Dict]:
+    """Butonul de test: trimite roșu pe fiecare adresă și spune ce a mers."""
+    out = []
+    for host in HOSTS:
+        try:
+            code = post_event(event, host=host, port=port, timeout=1.0)
+            out.append({"host": host, "ok": 200 <= code < 300, "result": f"HTTP {code}"})
+        except http.client.HTTPException as exc:
+            out.append({"host": host, "ok": True, "result": f"trimis (răspuns ciudat: {exc!r})"})
+        except OSError as exc:
+            out.append({"host": host, "ok": False, "result": str(exc)})
+    return out
 
 
 def latest() -> Dict:
@@ -154,6 +178,7 @@ class SignalRGBBridge(Device):
         self.event_port = event_port
         self.event_status = "încă nimic trimis"
         self._event_fail = 0
+        self._host: Optional[str] = None
         self.api = None
         self.api_status = "fără control (alege tu efectul în SignalRGB)"
         try:
@@ -196,18 +221,25 @@ class SignalRGBBridge(Device):
         if self._event_fail >= 3 and self._event_fail % 10:
             self._event_fail += 1
             return
-        try:
-            code = post_event(event, port=self.event_port)
-        except OSError as exc:
-            self._event_fail += 1
-            self.event_status = f"SignalRGB nu primește evenimente pe portul {self.event_port}: {exc}"
-            return
-        if 200 <= code < 300:
-            self._event_fail = 0
-            self.event_status = "trimite culorile la SignalRGB"
-        else:
-            self._event_fail += 1
-            self.event_status = f"SignalRGB a răspuns {code} la evenimente"
+        hosts = [self._host] if self._host else list(HOSTS)
+        errors = []
+        for host in hosts:
+            try:
+                code = post_event(event, host=host, port=self.event_port)
+            except http.client.HTTPException:
+                code = 200   # cererea a plecat; SignalRGB a răspuns ciudat, dar evenimentul ajunge
+            except OSError as exc:
+                errors.append(f"{host}: {exc}")
+                continue
+            if 200 <= code < 300:
+                self._event_fail = 0
+                self._host = host
+                self.event_status = f"trimite culorile la SignalRGB ({host})"
+                return
+            errors.append(f"{host}: HTTP {code}")
+        self._host = None            # data viitoare le încercăm iar pe toate
+        self._event_fail += 1
+        self.event_status = f"SignalRGB nu primește evenimente pe portul {self.event_port}: " + "; ".join(errors)
 
     @property
     def status_text(self) -> str:
@@ -219,8 +251,9 @@ class SignalRGBBridge(Device):
             _latest["event"] = ""
             _latest["at"] = 0.0
         try:
-            post_event("z|0|0,0,100,100,0:000000", port=self.event_port, timeout=0.3)   # negru la închidere
-        except OSError:
+            post_event("z|0|0,0,100,100,0:000000", host=self._host or "::1", port=self.event_port,
+                       timeout=0.3)   # negru la închidere
+        except (OSError, http.client.HTTPException):
             pass
         if self.api is not None and self.previous_effect and not self.shutdown:
             try:

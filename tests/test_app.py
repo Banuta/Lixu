@@ -558,6 +558,10 @@ class SignalRGBApiTest(unittest.TestCase):
             self.assertEqual(got[-1][1]["sender"], ["AIColors"])
             self.assertEqual(got[-1][1]["event"], ["c|ff8c00|0050ff"])
             self.assertIn("trimite culorile", dev.status_text)
+            self.assertEqual(dev._host, "127.0.0.1")         # serverul de test e doar pe IPv4
+            results = signalrgb.test_hosts(port=srv.server_address[1])
+            self.assertTrue(any(r["ok"] for r in results))
+            self.assertEqual(signalrgb.event_url("c|ff0000"), "/canvas/event?sender=AIColors&event=c|ff0000")
             dev.close()
             self.assertEqual(got[-1][1]["event"], ["z|0|0,0,100,100,0:000000"])
         finally:

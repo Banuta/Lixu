@@ -230,7 +230,8 @@
         <h2>SignalRGB <span class="sub">pentru ce merge doar acolo (ex. memorii Kingston)</span></h2>
         <p class="muted" style="font-size:12px;margin-top:0">AI Colors trimite culorile către efectul „AI Colors CS2”
           din SignalRGB, care le pune pe toate dispozitivele din SignalRGB. Nu cere Pro.</p>
-        <div class="row"><button class="btn primary" id="srgbInstall">Instalează efectul în SignalRGB</button></div>
+        <div class="row"><button class="btn primary" id="srgbInstall">Instalează efectul în SignalRGB</button>
+          <button class="btn" id="srgbTest" title="trimite roșu la efectul „AI Colors CS2” pe fiecare adresă">Test: roșu în SignalRGB</button></div>
         <ol class="muted" style="font-size:12px;padding-left:18px;margin:6px 0">
           <li>Dispozitive → + Adaugă manual → <b>signalrgb</b> → Salvează.</li>
           <li>Repornește SignalRGB. Cu <b>SignalRGB Pro</b>, AI Colors pornește singur efectul „AI Colors CS2” și
@@ -736,6 +737,12 @@ $("#autoStart").onchange = async e => {
 $("#srgbInstall").onclick = async () => {
   try { const r = await api("/api/signalrgb/install", {}); $("#srgbResult").textContent = "Pus în: " + r.path; }
   catch (err) { $("#srgbResult").textContent = "Eroare: " + err.message; }
+};
+$("#srgbTest").onclick = async () => {
+  try {
+    const r = await api("/api/signalrgb/test", {});
+    $("#srgbResult").textContent = r.results.map(x => `${x.ok ? "✔" : "✖"} ${x.host}: ${x.result}`).join("  ·  ");
+  } catch (err) { $("#srgbResult").textContent = "Eroare: " + err.message; }
 };
 $("#tuyaFetch").onclick = async () => {
   $("#tuyaResult").textContent = "mă conectez la Tuya...";
