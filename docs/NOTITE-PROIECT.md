@@ -57,6 +57,13 @@ Interfață web (Edge `--app`) + iconiță lângă ceas (Deschide / Pauză / Por
 
 * Govee din interfață: sub rândul Govee – Segmente, Grupare (separat/2/4/5), inversează direcția (`reverse`), degrade.
 
+## SignalRGB (utilizatorul are **SignalRGB Pro**)
+* Kingston FURY CTRL nu are API/SDK (verificat) -> memoriile merg doar prin SignalRGB la el.
+* API Pro local `http://127.0.0.1:16038/api/v1` (format din pachetul PyPI `signalrgb` 1.0.2): GET `/lighting`,
+  GET `/lighting/effects`, POST `/lighting/effects/{id}/apply`, PATCH `/lighting/enabled`.
+* Dispozitivul `signalrgb` („control”: true implicit) aplică singur „AI Colors CS2” și pune înapoi efectul anterior
+  la ieșire; la oprirea PC-ului rămâne negru. Statusul apare la Dispozitive -> Stare.
+
 ## De făcut / în așteptare
 1. **Firmware tastatură (culori live)** – plan sigur: (1) utilizatorul trimite `kb_flash_backup.bin`, îl analizez (handler comenzi, buffer LED, loc liber); (2) testăm citirea prin bootloader cu `sinowealth-kb-tool` (doar citire); (3) abia apoi patch + scriere. Fără pasul 2 reușit, nu scriem.
 2. **Efect SignalRGB „CS2 Direct”** – început (`/api/game` gata), fișierul `aicolors/signalrgb/CS2Direct.html` nescris.

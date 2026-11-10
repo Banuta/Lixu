@@ -141,7 +141,9 @@ AI Colors îi trimite culorile prin SignalRGB, fără SignalRGB Pro:
    `Documents\WhirlwindFX\Effects`).
 2. **Dispozitive -> + Adaugă manual -> signalrgb** (sau linia
    `{"type": "signalrgb", "effect": "ambient", "leds": 32}`) -> **Salvează**.
-3. Repornește SignalRGB și alege efectul **AI Colors CS2**.
+3. Repornește SignalRGB. Cu **SignalRGB Pro**, AI Colors pornește singur efectul **AI Colors CS2** prin
+   API-ul local (port 16038) și, la ieșire, pune înapoi efectul tău; la oprirea PC-ului rămâne stins.
+   Fără Pro, alegi tu efectul **AI Colors CS2** din SignalRGB. (`"control": false` dezactivează API-ul.)
 
 Efectul citește culorile de la AI Colors (`http://127.0.0.1:3001/api/signalrgb`) și le întinde de la
 stânga la dreapta pe canvasul SignalRGB; fiecare dispozitiv ia culoarea locului unde e așezat în

@@ -232,7 +232,7 @@ class Engine:
         """Câmpurile care cer reconectare când se schimbă."""
         keys = ("type", "host", "port", "id", "target", "zones", "match", "device_type", "index",
                 "leds", "local_key", "version", "rgb_order", "dll", "hosts", "segments", "groups", "gradient",
-                "backend", "all", "zone", "auto_colors", "static_mode", "reload", "reverse")
+                "backend", "all", "zone", "auto_colors", "static_mode", "reload", "reverse", "control", "api_port")
         return tuple(str(entry.get(k)) for k in keys)
 
     def keyboard_preview(self, value) -> dict:
@@ -285,6 +285,8 @@ class Engine:
                 dev = out.device
                 if dev is None or dev.kind not in self.BLACKOUT_KINDS:
                     continue
+                if hasattr(dev, "shutdown"):
+                    dev.shutdown = True  # SignalRGB: rămâne negru, nu revine la efectul vechi
                 try:
                     dev.send([(0, 0, 0)] * dev.led_count)
                 except Exception as exc:
@@ -397,5 +399,6 @@ class Engine:
                 "scene": last[0] if last and isinstance(last[0], str) else None,
                 "mode": getattr(dev, "current", None),
                 "original_mode": getattr(dev, "original", None),
+                "status": getattr(dev, "api_status", None),
             })
         return result

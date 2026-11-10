@@ -416,3 +416,67 @@ class TuyaErrorHintsTest(unittest.TestCase):
             tuya.fetch_cloud_keys("europa", "id", "secret")
         with self.assertRaises(DeviceError):
             tuya.fetch_cloud_keys("eu", " ", "secret")
+
+
+class SignalRGBApiTest(unittest.TestCase):
+    def _server(self, effects):
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        calls = []
+        state = {"current": "eff-mine"}
+
+        class H(BaseHTTPRequestHandler):
+            def _json(self, obj):
+                body = json.dumps(obj).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self):
+                calls.append(("GET", self.path))
+                if self.path == "/api/v1/lighting":
+                    name = dict(effects).get(state["current"], "?")
+                    self._json({"status": "ok", "data": {"id": state["current"], "attributes": {"name": name}}})
+                elif self.path == "/api/v1/lighting/effects":
+                    self._json({"data": {"items": [{"id": i, "attributes": {"name": n}} for i, n in effects]}})
+
+            def do_POST(self):
+                calls.append(("POST", self.path))
+                state["current"] = self.path.split("/")[-2]
+                self._json({"status": "ok"})
+
+            def log_message(self, *a):
+                pass
+
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        return srv, calls, state
+
+    def test_applies_our_effect_and_restores(self):
+        from aicolors.devices import signalrgb
+
+        srv, calls, state = self._server([("eff-mine", "Rainbow"), ("eff-ai", "AI Colors CS2")])
+        try:
+            dev = signalrgb.SignalRGBBridge(8, control=True, api_port=srv.server_address[1])
+            self.assertEqual(state["current"], "eff-ai")
+            self.assertIn("Rainbow", dev.api_status)
+            dev.close()
+            self.assertEqual(state["current"], "eff-mine")       # efectul tău înapoi
+            dev2 = signalrgb.SignalRGBBridge(8, control=True, api_port=srv.server_address[1])
+            dev2.shutdown = True                                  # la oprirea PC-ului: rămâne pe al nostru
+            dev2.close()
+            self.assertEqual(state["current"], "eff-ai")
+        finally:
+            srv.shutdown()
+
+    def test_without_api_still_publishes(self):
+        from aicolors.devices import signalrgb
+
+        dev = signalrgb.SignalRGBBridge(2, control=True, api_port=1)   # nimic nu ascultă pe portul 1
+        self.assertIsNone(dev.api)
+        self.assertIn("nu răspunde", dev.api_status)
+        dev.send([(9, 9, 9), (1, 1, 1)])
+        self.assertEqual(signalrgb.latest()["colors"], ["#090909", "#010101"])
+        dev.close()

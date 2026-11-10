@@ -38,12 +38,40 @@ def latest() -> Dict:
 
 
 class SignalRGBBridge(Device):
+    """Cu SignalRGB Pro ("control": true, implicit): la pornire aplică singur efectul
+    „AI Colors CS2” prin API-ul local și la ieșire pune înapoi efectul tău. Fără Pro: doar
+    publică culorile, iar efectul îl alegi tu în SignalRGB."""
+
     kind = "signalrgb"
     min_interval = 0.03
     keepalive = 0.5
 
-    def __init__(self, leds: int = 32, name: Optional[str] = None):
+    def __init__(self, leds: int = 32, name: Optional[str] = None, control: bool = True,
+                 api_port: int = 16038, api=None):
         super().__init__(name or "SignalRGB (efectul AI Colors CS2)", max(1, min(256, int(leds))))
+        self.previous_effect: Optional[str] = None
+        self.shutdown = False   # la oprirea PC-ului nu mai punem efectul vechi (rămâne negru)
+        self.api = None
+        self.api_status = "fără control (alege tu efectul în SignalRGB)"
+        if control:
+            from ..signalrgb_api import SignalRGBApi, SignalRGBError
+
+            api = api or SignalRGBApi(port=api_port)
+            try:
+                prev_id, prev_name = api.current()
+                ours = api.find()
+                if ours is None:
+                    install_effect()
+                    self.api_status = ("efectul „AI Colors CS2” nu apare încă în SignalRGB: "
+                                       "l-am pus în folderul de efecte, repornește SignalRGB")
+                else:
+                    if prev_id != ours:
+                        self.previous_effect = prev_id
+                        api.apply(ours)
+                    self.api = api
+                    self.api_status = f"control prin API Pro (înainte era „{prev_name}”)"
+            except SignalRGBError as exc:
+                self.api_status = str(exc)
 
     def send(self, colors: Sequence[RGB]) -> None:
         with _lock:
@@ -54,10 +82,16 @@ class SignalRGBBridge(Device):
         with _lock:
             _latest["colors"] = []
             _latest["at"] = 0.0
+        if self.api is not None and self.previous_effect and not self.shutdown:
+            try:
+                self.api.apply(self.previous_effect)  # efectul tău din SignalRGB înapoi
+            except Exception:
+                pass
 
 
 def from_config(entry: dict) -> Device:
-    return SignalRGBBridge(entry.get("leds", 32), entry.get("name"))
+    return SignalRGBBridge(entry.get("leds", 32), entry.get("name"), bool(entry.get("control", True)),
+                           int(entry.get("api_port", 16038)))
 
 
 def effects_dirs() -> List[Path]:
