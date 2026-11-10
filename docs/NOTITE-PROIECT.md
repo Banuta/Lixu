@@ -5,6 +5,7 @@ Limba de lucru: **română**. Codul e pe branch-ul `ccr-0ddab67e-06mfdx` din `Ba
 
 ## Preferințele utilizatorului
 * Arhive `.zip` **doar când cere** („fă arhiva”). Modificările se urcă oricum pe GitHub.
+* Pentru actualizări vrea **doar fișierele schimbate** (zip mic cu structura `AIColors/...`, dezarhivat peste folder), nu toată aplicația. Ultimul pachet: `AIColors-fisiere-noi.zip` (față de v22).
 * Vrea totul automat, fără configurat manual; aplicația stă lângă ceas, fără ferestre `cmd`.
 * Nu vrea G HUB instalat; nu vrea să riște tastatura („să nu-mi cumpăr una nouă”).
 * Ultima versiune livrată: **v22** (`AIColors-v22.zip`). Versiunea aplicației în cod: 0.6.0.
@@ -88,5 +89,5 @@ Interfață web (Edge `--app`) + iconiță lângă ceas (Deschide / Pauză / Por
 2. **Efect SignalRGB „CS2 Direct”** – început (`/api/game` gata), fișierul `aicolors/signalrgb/CS2Direct.html` nescris.
 3. **Game mode pe taste** – de aflat cum se activează (rezultatul efectului 20 neraportat; lista de la 0xB700).
 4. **Kingston prin SignalRGB** – de confirmat dacă efectul „AI Colors CS2” colorează memoriile.
-5. **Tuya** – utilizatorului nu i se încarcă site-ul Tuya; de reluat.
+5. **Tuya** – wizard-ul tinytuya a mers (devices.json cu cheia), dar scanarea locală n-a găsit IP-ul. AI Colors are acum câmpuri ID/IP/cheie/protocol + „Încarcă devices.json…” și încearcă 3.3/3.1/3.4/3.5. De confirmat că becul răspunde la 192.168.68.71.
 6. **Stingerea la oprire** – de confirmat pe PC (plus profil „Stins” + „Set Profile on Exit” în OpenRGB; BIOS: LEDs in Soft Off States = Off).
