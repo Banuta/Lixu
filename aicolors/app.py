@@ -80,6 +80,11 @@ def _state_dict(store: StateStore) -> Dict[str, Any]:
         "score_t": ((raw.get("map") or {}).get("team_t") or {}).get("score"),
         "weapon": w.name.replace("weapon_", "") if w else "",
         "ammo": w.ammo_clip if w else None, "ammo_max": w.ammo_clip_max if w else None,
+        "win_team": st.win_team,
+        # vârste în secunde, pentru animațiile efectului „CS2 Direct” din SignalRGB
+        "bomb_elapsed": round(time.time() - st.bomb_planted_at, 2) if st.bomb_planted_at else None,
+        "bomb_end_age": round(time.time() - st.bomb_ended_at, 2) if st.bomb_ended_at else None,
+        "round_over_age": round(time.time() - st.round_over_at, 2) if st.round_over_at else None,
     }
 
 
@@ -305,10 +310,12 @@ def make_ui_handler(app: App):
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
-            elif path == "/api/signalrgb":  # citit de efectul din SignalRGB (alt „origin” -> CORS)
+            elif path in ("/api/signalrgb", "/api/game"):  # citite de efectele SignalRGB (CORS)
                 from .devices import signalrgb
 
-                body = json.dumps(signalrgb.latest()).encode("utf-8")
+                data = signalrgb.latest() if path == "/api/signalrgb" else \
+                    dict(_state_dict(app.store), palette=effects.palette(), paused=app.engine.paused)
+                body = json.dumps(data).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
