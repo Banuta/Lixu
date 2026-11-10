@@ -145,6 +145,9 @@ AI Colors îi trimite culorile prin SignalRGB, fără SignalRGB Pro:
    API-ul local (port 16038) și, la ieșire, pune înapoi efectul tău; la oprirea PC-ului rămâne stins.
    Fără Pro, alegi tu efectul **AI Colors CS2** din SignalRGB. (`"control": false` dezactivează API-ul.)
 
+Dacă SignalRGB îți vede deja toate dispozitivele, apasă în **Dispozitive** butonul **„Totul prin SignalRGB”**:
+AI Colors le lasă pe toate în grija SignalRGB și păstrează direct doar tastatura ZENKABEAT și becurile Tuya.
+
 Efectul citește culorile de la AI Colors (`http://127.0.0.1:3001/api/signalrgb`) și le întinde de la
 stânga la dreapta pe canvasul SignalRGB; fiecare dispozitiv ia culoarea locului unde e așezat în
 Layout. Cu `"effect": "health"` bara de viață merge de la stânga la dreapta. Ca să nu se certe,

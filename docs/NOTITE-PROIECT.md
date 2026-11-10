@@ -64,6 +64,13 @@ Interfață web (Edge `--app`) + iconiță lângă ceas (Deschide / Pauză / Por
 * Dispozitivul `signalrgb` („control”: true implicit) aplică singur „AI Colors CS2” și pune înapoi efectul anterior
   la ieșire; la oprirea PC-ului rămâne negru. Statusul apare la Dispozitive -> Stare.
 
+## Decizia utilizatorului: totul prin SignalRGB
+* SignalRGB (Pro) ține toate dispozitivele pe care le vede (benzi, Govee, Logitech, placă, RAM); AI Colors trimite
+  datele CS2 prin efectul „AI Colors CS2” (citește `/api/signalrgb` de ~30 ori/s).
+* În AI Colors rămân direct doar **tastatura ZENKABEAT** și **becul Tuya** (SignalRGB nu le are).
+* Butonul „Totul prin SignalRGB” (Dispozitive) dezactivează restul (le păstrează în config) și adaugă `signalrgb`.
+* Bateria/DPI pentru Logitech rămân în AI Colors (monitorul HID++ e separat de lumini).
+
 ## De făcut / în așteptare
 1. **Firmware tastatură (culori live)** – plan sigur: (1) utilizatorul trimite `kb_flash_backup.bin`, îl analizez (handler comenzi, buffer LED, loc liber); (2) testăm citirea prin bootloader cu `sinowealth-kb-tool` (doar citire); (3) abia apoi patch + scriere. Fără pasul 2 reușit, nu scriem.
 2. **Efect SignalRGB „CS2 Direct”** – început (`/api/game` gata), fișierul `aicolors/signalrgb/CS2Direct.html` nescris.

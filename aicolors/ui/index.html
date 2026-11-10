@@ -129,6 +129,9 @@
       <div class="row" style="margin-top:14px">
         <select id="addType"></select>
         <button class="btn" id="addBtn">+ Adaugă manual</button>
+        <button class="btn" id="allToSignal" style="margin-left:auto"
+          title="SignalRGB controlează toate dispozitivele lui; AI Colors păstrează doar tastatura ZENKABEAT și becurile Tuya">
+          Totul prin SignalRGB</button>
       </div>
     </div>
     <div class="card" style="margin-top:16px" id="kbCard" hidden>
@@ -517,6 +520,17 @@ $("#addBtn").onclick = () => {
   markDirty(); renderDevices();
   const rows = document.querySelectorAll("tr.json"); rows[rows.length - 1].hidden = false;
   toast("Completează adresa în JSON, apoi Salvează");
+};
+
+$("#allToSignal").onclick = () => {
+  const keep = ["zenkabeat", "tuya", "signalrgb"];
+  let off = 0;
+  cfg.devices.forEach(d => { if (!keep.includes(d.type) && d.enabled !== false) { d.enabled = false; off++; } });
+  if (!cfg.devices.some(d => d.type === "signalrgb"))
+    cfg.devices.push({type: "signalrgb", effect: "ambient", leds: 32});
+  cfg.devices.forEach(d => { if (d.type === "signalrgb") d.enabled = true; });
+  markDirty(); renderDevices();
+  toast(`Am oprit ${off} dispozitive (le ține SignalRGB). Apasă Salvează.`, 5000);
 };
 
 $("#scanBtn").onclick = async () => {

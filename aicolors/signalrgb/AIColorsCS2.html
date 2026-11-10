@@ -25,7 +25,7 @@
     var p = (typeof port !== "undefined" && port) ? port : 3001;
     var xhr = new XMLHttpRequest();
     xhr.open("GET", "http://127.0.0.1:" + p + "/api/signalrgb", true);
-    xhr.timeout = 500;
+    xhr.timeout = 400;
     xhr.onload = function () {
       try {
         var d = JSON.parse(xhr.responseText);
@@ -56,6 +56,6 @@
     window.requestAnimationFrame(update);
   }
 
-  setInterval(poll, 60);
+  setInterval(poll, 33);   // ~30 citiri pe secundă
   window.requestAnimationFrame(update);
 </script>
