@@ -396,6 +396,10 @@ class SignalRGBBridgeTest(unittest.TestCase):
                 self.assertTrue(path.exists())
                 self.assertIn("WhirlwindFX", str(path))
                 self.assertIn("exCanvas", path.read_text(encoding="utf-8"))
+                self.assertEqual(signalrgb.update_installed_effect(), [])
+                path.write_text("vechi", encoding="utf-8")
+                self.assertEqual(signalrgb.update_installed_effect(), [path])
+                self.assertEqual(path.read_bytes(), signalrgb.EFFECT_FILE.read_bytes())
             finally:
                 if old is None:
                     os.environ.pop("USERPROFILE", None)

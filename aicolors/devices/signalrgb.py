@@ -53,6 +53,10 @@ class SignalRGBBridge(Device):
         self.shutdown = False   # la oprirea PC-ului nu mai punem efectul vechi (rămâne negru)
         self.api = None
         self.api_status = "fără control (alege tu efectul în SignalRGB)"
+        try:
+            update_installed_effect()   # o versiune veche a efectului e înlocuită cu cea nouă
+        except OSError:
+            pass
         if control:
             from ..signalrgb_api import SignalRGBApi, SignalRGBError
 
@@ -99,6 +103,18 @@ def effects_dirs() -> List[Path]:
     home = Path(os.environ.get("USERPROFILE") or Path.home())
     docs = [home / "Documents", home / "OneDrive" / "Documents", home / "OneDrive" / "Documente"]
     return [d / "WhirlwindFX" / "Effects" for d in docs]
+
+
+def update_installed_effect() -> List[Path]:
+    """Rescrie efectul deja instalat dacă diferă de cel din aplicație (după o actualizare)."""
+    new = EFFECT_FILE.read_bytes()
+    updated = []
+    for d in effects_dirs():
+        target = d / EFFECT_FILE.name
+        if target.is_file() and target.read_bytes() != new:
+            target.write_bytes(new)
+            updated.append(target)
+    return updated
 
 
 def install_effect() -> Path:
