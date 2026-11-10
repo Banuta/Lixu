@@ -27,9 +27,23 @@ from .base import Device, DeviceError, Found, average
 log = logging.getLogger(__name__)
 
 def _devices_json_paths() -> List[Path]:
+    """Unde poate fi devices.json: wizard-ul îl scrie în folderul din care a fost rulat."""
+    import os
+
     from ..config import user_config_path
 
-    return [user_config_path().parent / "devices.json", Path.cwd() / "devices.json", Path.home() / "devices.json"]
+    home = Path(os.environ.get("USERPROFILE") or Path.home())
+    app_dir = Path(__file__).resolve().parents[2]
+    dirs = [user_config_path().parent, Path.cwd(), app_dir, home,
+            home / "Downloads", home / "Desktop", home / "Documents",
+            home / "OneDrive" / "Desktop", home / "OneDrive" / "Documents", home / "OneDrive" / "Documente",
+            Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"]
+    out: List[Path] = []
+    for d in dirs:
+        p = d / "devices.json"
+        if p not in out:
+            out.append(p)
+    return out
 
 
 # Data center-ul proiectului din iot.tuya.com -> codul pentru tinytuya.
@@ -101,14 +115,21 @@ def _tinytuya():
 
 
 def wizard_devices(path: Optional[str] = None) -> Dict[str, Dict]:
-    """Dispozitivele din devices.json (creat de `python -m tinytuya wizard`), după id."""
+    """Dispozitivele din devices.json (creat de `python -m tinytuya wizard`), după id.
+    Se citesc toate fișierele găsite; primul care are o cheie pentru un id câștigă."""
+    found: Dict[str, Dict] = {}
     for p in ([Path(path)] if path else _devices_json_paths()):
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        return {d["id"]: d for d in data if isinstance(d, dict) and "id" in d}
-    return {}
+        for d in data if isinstance(data, list) else []:
+            if isinstance(d, dict) and d.get("id") and (d["id"] not in found or not found[d["id"]].get("key")):
+                found[d["id"]] = dict(d, _file=str(p))
+    return found
+
+
+VERSIONS = (3.3, 3.1, 3.4, 3.5)
 
 
 class TuyaBulb(Device):
@@ -121,19 +142,34 @@ class TuyaBulb(Device):
                  devices_json: Optional[str] = None):
         tinytuya = _tinytuya()
         known = wizard_devices(devices_json).get(dev_id, {})
-        local_key = local_key or known.get("key")
-        host = host or known.get("ip") or "Auto"
+        local_key = (local_key or known.get("key") or "").strip()
+        host = (host or known.get("ip") or "Auto").strip()
         if not local_key:
-            raise DeviceError(f"Tuya {dev_id}: lipsește local_key (rulează `python -m tinytuya wizard`)")
+            raise DeviceError(f"Tuya {dev_id}: lipsește cheia locală. La Dispozitive, sub rândul Tuya: "
+                              "„Încarcă devices.json” sau scrie cheia (câmpul \"key\" din devices.json).")
         super().__init__(name or known.get("name") or f"Tuya {dev_id[-6:]}", 1)
-        self.bulb = tinytuya.BulbDevice(dev_id, host, local_key,
-                                        version=float(version or known.get("version") or 3.3),
-                                        persist=True, connection_timeout=2)
-        self.bulb.set_socketTimeout(1)
-        status = self.bulb.status()  # detectează tipul becului (formatul culorii)
-        if not isinstance(status, dict) or "Error" in status:
+        # versiunea de protocol: cea dată, cea din devices.json, altfel le încercăm pe rând
+        given = version or known.get("version")
+        versions = [float(given)] if given else list(VERSIONS)
+        errors = []
+        for v in versions:
+            bulb = tinytuya.BulbDevice(dev_id, host, local_key, version=v, persist=True, connection_timeout=2)
+            bulb.set_socketTimeout(1)
+            status = bulb.status()  # detectează și tipul becului (formatul culorii)
+            if isinstance(status, dict) and "Error" not in status:
+                self.bulb = bulb
+                self.version = v
+                break
             err = status.get("Error") if isinstance(status, dict) else status
-            raise DeviceError(f"Tuya {dev_id} ({host}) nu răspunde: {err}")
+            errors.append(f"{v}: {err}")
+            try:
+                bulb.close()
+            except Exception:
+                pass
+        else:
+            hint = " (pune IP-ul becului la Dispozitive)" if host == "Auto" else ""
+            raise DeviceError(f"Tuya {dev_id} ({host}){hint} nu răspunde: " + "; ".join(errors))
+        self.api_status = f"conectat pe {host}, protocol {self.version}"
         self.bulb.turn_on(nowait=True)
 
     def send(self, colors: Sequence[RGB]) -> None:

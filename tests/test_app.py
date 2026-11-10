@@ -203,6 +203,20 @@ class TuyaTest(unittest.TestCase):
         dev.send([(255, 0, 0)])
         self.assertEqual(bulb.calls[-2:], [("colour", 1, 1, 1, True), ("colour", 255, 0, 0, True)])
 
+    def test_tries_protocol_versions(self):
+        from aicolors.devices import tuya
+
+        orig = FakeBulb.status
+        FakeBulb.status = lambda self: ({"dps": {"20": True}} if self.args[3]["version"] == 3.1
+                                        else {"Error": "Check device key or version", "Err": "914"})
+        try:
+            dev = tuya.TuyaBulb("bf01", "192.168.68.71", "cheie", devices_json="/nu/exista.json")
+        finally:
+            FakeBulb.status = orig
+        self.assertEqual(dev.version, 3.1)
+        self.assertIn("protocol 3.1", dev.api_status)
+        self.assertEqual([b.args[3]["version"] for b in FakeBulb.instances], [3.3, 3.1])
+
     def test_missing_key(self):
         from aicolors.devices import tuya
         from aicolors.devices.base import DeviceError

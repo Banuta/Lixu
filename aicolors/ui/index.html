@@ -407,6 +407,7 @@ function renderDevices() {
       </td></tr>
       ${d.type === "govee" ? goveeOptions(d, i) : ""}
       ${d.type === "signalrgb" ? srgbZones(d, i) : ""}
+      ${d.type === "tuya" ? tuyaOptions(d, i) : ""}
       <tr class="json" data-i="${i}" hidden><td colspan="7"><textarea data-f="json">${esc(JSON.stringify(d, null, 2))}</textarea></td></tr>`;
   }).join("");
 }
@@ -455,6 +456,49 @@ $("#kbRestore").onclick = async () => {
   try { await api("/api/kbmode", {value: null}); toast("Efectul tău e înapoi"); }
   catch (err) { toast("Eroare: " + err.message, 5000); }
 };
+
+// ---- Tuya: cheia locală, IP-ul și versiunea direct din interfață (sau din devices.json)
+function tuyaOptions(d, i) {
+  const vs = ["", "3.1", "3.3", "3.4", "3.5"];
+  return `<tr class="tuya" data-i="${i}"><td></td><td colspan="6" class="muted" style="font-size:12px">
+    ID <input data-t="id" value="${esc(d.id || "")}" style="width:190px" placeholder="id-ul becului">
+    IP <input data-t="host" value="${esc(d.host || "")}" style="width:120px" placeholder="ex. 192.168.68.71">
+    Cheie locală <input type="password" data-t="local_key" value="${esc(d.local_key || "")}" style="width:150px"
+      placeholder='"key" din devices.json' autocomplete="off">
+    Protocol <select data-t="version">${vs.map(v => `<option value="${v}" ${String(d.version || "") === v ? "selected" : ""}>${v || "automat"}</option>`).join("")}</select>
+    <button class="btn small" data-tfile>Încarcă devices.json…</button>
+    <input type="file" accept=".json,application/json" data-tpick hidden>
+    <span data-tmsg></span></td></tr>`;
+}
+$("#devTable").addEventListener("change", e => {
+  const t = e.target, tr = t.closest("tr.tuya"); if (!tr) return;
+  const d = cfg.devices[+tr.dataset.i];
+  if (t.dataset.t) {
+    const v = t.value.trim();
+    if (v) d[t.dataset.t] = v; else delete d[t.dataset.t];
+    markDirty(); return;
+  }
+  if (!t.hasAttribute("data-tpick") || !t.files[0]) return;
+  const msg = tr.querySelector("[data-tmsg]");
+  t.files[0].text().then(text => {
+    let list; try { list = JSON.parse(text); } catch { msg.textContent = "✖ fișierul nu e JSON"; return; }
+    if (!Array.isArray(list)) { msg.textContent = "✖ nu e un devices.json de la tinytuya"; return; }
+    const withKey = list.filter(x => x && x.id && x.key);
+    const hit = withKey.find(x => x.id === d.id) || (withKey.length === 1 && !d.id ? withKey[0] : null);
+    if (!hit) { msg.textContent = `✖ id-ul ${d.id || "(gol)"} nu e în fișier (găsite: ${list.map(x => x.name || x.id).join(", ") || "nimic"})`; return; }
+    d.id = hit.id; d.local_key = hit.key;
+    if (hit.ip && !d.host) d.host = hit.ip;
+    if (hit.version && !d.version) d.version = String(hit.version);
+    if (!d.name && hit.name) d.name = hit.name;
+    markDirty(); renderDevices();
+    document.querySelector("[data-save]").click();   // salvăm direct, ca să nu se piardă
+    toast(`Cheia pentru „${hit.name || hit.id}” e pusă și salvată.`, 5000);
+  });
+});
+$("#devTable").addEventListener("click", e => {
+  if (!e.target.hasAttribute("data-tfile")) return;
+  e.target.closest("tr").querySelector("[data-tpick]").click();
+});
 
 // ---- SignalRGB: zone pe canvas (procente), fiecare cu efectul ei
 function zonesOf(d) { return d.zones || meta.signalrgb_zones || []; }
