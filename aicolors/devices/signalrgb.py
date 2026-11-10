@@ -107,14 +107,15 @@ def event_text(colors: Sequence[RGB]) -> str:
     return "c|" + "|".join(_hexes(colors))
 
 
-def post_event(event: str, host: str = "127.0.0.1", port: int = EVENT_PORT,
+def post_event(event: str, host: str = "localhost", port: int = EVENT_PORT,
                timeout: float = 0.5) -> int:
     """Trimite un eveniment către efectul SignalRGB activ; întoarce codul HTTP."""
     query = urllib.parse.urlencode({"sender": SENDER, "event": event})
     conn = http.client.HTTPConnection(host, port, timeout=timeout)
     try:
         conn.request("POST", "/canvas/event?" + query, body=b"",
-                     headers={"Content-Length": "0"})
+                     headers={"Content-Length": "0",
+                              "Content-Type": "application/x-www-form-urlencoded"})
         resp = conn.getresponse()
         resp.read()
         return resp.status

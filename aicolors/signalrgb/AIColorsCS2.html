@@ -13,21 +13,20 @@
   // în care sunt așezate în Layout-ul SignalRGB.
   // Culorile vin de la AI Colors prin evenimentele SignalRGB:
   //   POST http://localhost:16034/canvas/event?sender=AIColors&event=c|rrggbb|rrggbb|...
-  // (SignalRGB le dă efectului prin onCanvasApiEvent). Ca rezervă, efectul încearcă și să
-  // citească singur de la http://127.0.0.1:3001/api/signalrgb (SignalRGB poate bloca asta).
+  // (SignalRGB le dă efectului prin onCanvasApiEvent). Efectul nu poate citi singur de la
+  // AI Colors: SignalRGB îl rulează pe o pagină https, iar http către 127.0.0.1 e blocat.
   // Fără legătură cu AI Colors: pulsează slab alb, ca să se vadă că efectul rulează.
   var c = document.getElementById("exCanvas");
   var ctx = c.getContext("2d");
-  var URLS = ["http://127.0.0.1:3001/api/signalrgb", "http://localhost:3001/api/signalrgb"];
-  var urlIndex = 0;
   var colors = [];
   var zones = null;        // [{x, y, w, h, v, colors}] în procente; null = o singură bandă
   var showZones = false;
   var lastOk = 0;
-  var busy = false;
 
   // apelată de SignalRGB pentru fiecare POST la /canvas/event
+  var seen = 0;
   function onCanvasApiEvent(apiEvent) {
+    if (seen < 3) { seen++; console.log("AI Colors CS2: eveniment primit, sender=" + (apiEvent && apiEvent["sender"])); }
     if (!apiEvent || apiEvent["sender"] !== "AIColors") return;
     var ev = apiEvent["event"];
     if (typeof ev === "string" && ev.indexOf("z|") === 0) { readZones(ev); return; }
@@ -36,7 +35,7 @@
     for (var i = 1; i < parts.length; i++) {
       if (/^[0-9a-fA-F]{6}$/.test(parts[i])) out.push("#" + parts[i]);
     }
-    if (out.length) { colors = out; zones = null; lastOk = Date.now(); lastEvent = lastOk; }
+    if (out.length) { colors = out; zones = null; lastOk = Date.now(); }
   }
 
   // z|<arată 0/1>|x,y,w,h,v:rrggbb,rrggbb|...
@@ -53,7 +52,7 @@
     }
     if (!out.length) return;
     zones = out; showZones = parts[1] === "1";
-    lastOk = Date.now(); lastEvent = lastOk;
+    lastOk = Date.now();
   }
 
   // o zonă: culorile ei ca benzi (orizontal de la stânga, vertical de jos în sus)
@@ -80,33 +79,6 @@
     }
   }
   window.onCanvasApiEvent = onCanvasApiEvent;
-  var lastEvent = 0;
-
-  function failed() {
-    busy = false;
-    urlIndex = (urlIndex + 1) % URLS.length;   // încercăm și cealaltă adresă
-  }
-
-  function poll() {
-    if (busy || Date.now() - lastEvent < 2000) return;   // evenimentele merg: nu mai citim
-    busy = true;
-    var xhr;
-    try {
-      xhr = new XMLHttpRequest();
-      xhr.open("GET", URLS[urlIndex] + "?t=" + Date.now(), true);
-      xhr.timeout = 500;
-    } catch (e) { failed(); return; }
-    xhr.onload = function () {
-      try {
-        var d = JSON.parse(xhr.responseText);
-        if (d.event && d.event.indexOf("z|") === 0) readZones(d.event);
-        else if (d.colors) { colors = d.colors; zones = null; lastOk = Date.now(); }
-        busy = false;
-      } catch (e) { failed(); }
-    };
-    xhr.onerror = xhr.ontimeout = xhr.onabort = failed;
-    try { xhr.send(); } catch (e) { failed(); }
-  }
 
   function update() {
     var w = c.width, h = c.height;
@@ -135,6 +107,9 @@
     window.requestAnimationFrame(update);
   }
 
-  setInterval(poll, 33);   // ~30 citiri pe secundă
   window.requestAnimationFrame(update);
+  console.log("AI Colors CS2: pornit, aștept culorile de la AI Colors (evenimente pe portul 16034)");
+  setInterval(function () {
+    if (!seen) console.log("AI Colors CS2: încă niciun eveniment de la AI Colors (rulează AI Colors? scrie la Dispozitive „trimite culorile la SignalRGB”?)");
+  }, 10000);
 </script>
