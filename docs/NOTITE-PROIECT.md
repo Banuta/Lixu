@@ -7,7 +7,7 @@ Limba de lucru: **română**. Codul e pe branch-ul `ccr-0ddab67e-06mfdx` din `Ba
 * Arhive `.zip` **doar când cere** („fă arhiva”). Modificările se urcă oricum pe GitHub.
 * Vrea totul automat, fără configurat manual; aplicația stă lângă ceas, fără ferestre `cmd`.
 * Nu vrea G HUB instalat; nu vrea să riște tastatura („să nu-mi cumpăr una nouă”).
-* Ultima versiune livrată: **v20** (`AIColors-v20.zip`). Versiunea aplicației în cod: 0.5.0.
+* Ultima versiune livrată: **v22** (`AIColors-v22.zip`). Versiunea aplicației în cod: 0.6.0.
 
 ## Hardware-ul utilizatorului (din diagnostic)
 | Dispozitiv | Detalii |
@@ -65,6 +65,11 @@ Interfață web (Edge `--app`) + iconiță lângă ceas (Deschide / Pauză / Por
   împinge culorile: `POST http://localhost:16034/canvas/event?sender=AIColors&event=c|rrggbb|...` (o singură culoare
   dacă toate sunt la fel), primite în efect prin `onCanvasApiEvent`. XHR rămâne doar ca rezervă. Portul fix 3001
   (controlul numeric „Port AI Colors” din SignalRGB arăta 024 și a fost scos).
+* **Zone pe canvas** (v22): dispozitivul `signalrgb` are `zones` (procente x/y/w/h, efect, vertical, bucăți) și
+  `show_zones` (contur + număr în SignalRGB). Implicit, după Layout-ul utilizatorului: 1 fundal ambient (banda de
+  10 sus, G502, Top/Bottom LED), 2 Kingston 1 = viață (vertical), 3 Kingston 2 = armură (vertical),
+  4 Custom Strip 30 sus = gloanțe, 5 Custom Strip 30 jos = timp bombă. `"zones": []` = o singură bandă.
+  Se editează la Dispozitive, sub rândul SignalRGB.
 * Dispozitivul `signalrgb` („control”: true implicit) aplică singur „AI Colors CS2” și pune înapoi efectul anterior
   la ieșire; la oprirea PC-ului rămâne negru. Statusul apare la Dispozitive -> Stare.
 

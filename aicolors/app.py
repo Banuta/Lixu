@@ -215,6 +215,7 @@ class App:
             "default_palette": DEFAULT_PALETTE,
             "keys": [{"name": k.name, "led": k.led} for k in layout.KEYS],
             "scenes": effects.SCENES,
+            "signalrgb_zones": __import__("aicolors.devices.signalrgb", fromlist=["x"]).DEFAULT_ZONES,
             "dry_run": self.dry_run,
         }
 

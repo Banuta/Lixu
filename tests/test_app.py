@@ -382,7 +382,8 @@ class SignalRGBBridgeTest(unittest.TestCase):
 
         from aicolors.devices import signalrgb
 
-        dev = signalrgb.from_config({"type": "signalrgb", "leds": 4})
+        dev = signalrgb.from_config({"type": "signalrgb", "leds": 4, "zones": [], "control": False,
+                                     "event_port": 1})
         self.assertEqual(dev.led_count, 4)
         dev.send([(255, 0, 0), (0, 0, 255)] * 2)
         self.assertEqual(signalrgb.latest()["colors"], ["#ff0000", "#0000ff", "#ff0000", "#0000ff"])
@@ -491,6 +492,43 @@ class SignalRGBApiTest(unittest.TestCase):
         self.assertEqual(signalrgb.event_text([(255, 82, 0)] * 32), "c|ff5200")
         self.assertEqual(signalrgb.event_text([(255, 0, 0), (0, 0, 255)]), "c|ff0000|0000ff")
 
+    def test_zones(self):
+        from aicolors.devices import signalrgb
+
+        zones = signalrgb.clean_zones([{"effect": "ambient", "leds": 1},
+                                       {"effect": "health", "x": 34, "y": 33, "w": 10, "h": 66,
+                                        "vertical": True, "leds": 2}, {"effect": "nope", "leds": 999}])
+        self.assertEqual([z["effect"] for z in zones], ["ambient", "health", "ambient"])
+        self.assertEqual(zones[2]["leds"], 64)
+        text = signalrgb.zones_event_text(zones[:2], [(255, 140, 0), (255, 0, 0), (20, 0, 0)], show=True)
+        self.assertEqual(text, "z|1|0,0,100,100,0:ff8c00|34,33,10,66,1:ff0000,140000")
+        dev = signalrgb.from_config({"type": "signalrgb", "control": False, "event_port": 1})
+        self.assertEqual(dev.led_count, sum(z["leds"] for z in signalrgb.DEFAULT_ZONES))
+        dev.close()
+        one = signalrgb.from_config({"type": "signalrgb", "control": False, "event_port": 1, "zones": [], "leds": 5})
+        self.assertEqual((one.canvas_zones, one.led_count), ([], 5))
+        one.close()
+
+    def test_engine_renders_each_zone(self):
+        from aicolors.devices import signalrgb
+        from aicolors.engine import Engine
+        from aicolors.gsi import StateStore
+
+        dev = signalrgb.SignalRGBBridge(control=False, event_port=1, zones=[
+            {"effect": "team", "leds": 1}, {"effect": "health", "leds": 4, "vertical": True}])
+        store = StateStore()
+        store.update({"provider": {"steamid": "1"}, "map": {"phase": "live"}, "round": {"phase": "live"},
+                      "player": {"steamid": "1", "team": "CT", "activity": "playing",
+                                 "state": {"health": 50, "armor": 0}}})
+        eng = Engine([], store)
+        out = types.SimpleNamespace(device=dev, identify_until=0.0, effect="ambient", entry={})
+        frame = eng.frame_for(out, store.get(), 0.0, dev)
+        self.assertEqual(len(frame), 5)
+        self.assertEqual(frame[0], effects.CT_COLOR)
+        self.assertNotEqual(frame[1], (0, 0, 0))     # bara de viață: jumătate aprinsă
+        self.assertEqual(frame[4], (15, 0, 0))
+        dev.close()
+
     def test_pushes_events_to_signalrgb(self):
         import threading
         import urllib.parse
@@ -521,6 +559,6 @@ class SignalRGBApiTest(unittest.TestCase):
             self.assertEqual(got[-1][1]["event"], ["c|ff8c00|0050ff"])
             self.assertIn("trimite culorile", dev.status_text)
             dev.close()
-            self.assertEqual(got[-1][1]["event"], ["c|000000"])
+            self.assertEqual(got[-1][1]["event"], ["z|0|0,0,100,100,0:000000"])
         finally:
             srv.shutdown()

@@ -232,7 +232,8 @@ class Engine:
         """Câmpurile care cer reconectare când se schimbă."""
         keys = ("type", "host", "port", "id", "target", "zones", "match", "device_type", "index",
                 "leds", "local_key", "version", "rgb_order", "dll", "hosts", "segments", "groups", "gradient",
-                "backend", "all", "zone", "auto_colors", "static_mode", "reload", "reverse", "control", "api_port")
+                "backend", "all", "zone", "auto_colors", "static_mode", "reload", "reverse", "control", "api_port",
+                "show_zones")
         return tuple(str(entry.get(k)) for k in keys)
 
     def keyboard_preview(self, value) -> dict:
@@ -267,6 +268,10 @@ class Engine:
             return [IDENTIFY_COLORS[min(phase, len(IDENTIFY_COLORS) - 1)]] * dev.led_count
         if out.effect == "keyboard" and dev.led_count == LED_COUNT:
             colors = self.keyboard.render(st, now)
+        elif getattr(dev, "canvas_zones", None):
+            colors = []   # SignalRGB cu zone: fiecare zonă cu efectul ei, una după alta
+            for z in dev.canvas_zones:
+                colors += effects.strip(st, now, z["leds"], z["effect"])
         else:
             colors = dev.map_strip(effects.strip(st, now, dev.strip_length, out.effect))
         k = self.brightness * float(out.entry.get("brightness", 1.0))

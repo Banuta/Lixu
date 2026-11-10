@@ -21,6 +21,8 @@
   var URLS = ["http://127.0.0.1:3001/api/signalrgb", "http://localhost:3001/api/signalrgb"];
   var urlIndex = 0;
   var colors = [];
+  var zones = null;        // [{x, y, w, h, v, colors}] în procente; null = o singură bandă
+  var showZones = false;
   var lastOk = 0;
   var busy = false;
 
@@ -28,12 +30,54 @@
   function onCanvasApiEvent(apiEvent) {
     if (!apiEvent || apiEvent["sender"] !== "AIColors") return;
     var ev = apiEvent["event"];
+    if (typeof ev === "string" && ev.indexOf("z|") === 0) { readZones(ev); return; }
     if (typeof ev !== "string" || ev.indexOf("c|") !== 0) return;
     var parts = ev.split("|"), out = [];
     for (var i = 1; i < parts.length; i++) {
       if (/^[0-9a-fA-F]{6}$/.test(parts[i])) out.push("#" + parts[i]);
     }
-    if (out.length) { colors = out; lastOk = Date.now(); lastEvent = lastOk; }
+    if (out.length) { colors = out; zones = null; lastOk = Date.now(); lastEvent = lastOk; }
+  }
+
+  // z|<arată 0/1>|x,y,w,h,v:rrggbb,rrggbb|...
+  function readZones(ev) {
+    var parts = ev.split("|"), out = [];
+    for (var i = 2; i < parts.length; i++) {
+      var half = parts[i].split(":");
+      if (half.length !== 2) continue;
+      var g = half[0].split(",").map(parseFloat);
+      if (g.length < 5 || g.some(isNaN)) continue;
+      var cols = half[1].split(",").filter(function (h) { return /^[0-9a-fA-F]{6}$/.test(h); })
+                                    .map(function (h) { return "#" + h; });
+      if (cols.length) out.push({x: g[0], y: g[1], w: g[2], h: g[3], v: g[4] === 1, colors: cols});
+    }
+    if (!out.length) return;
+    zones = out; showZones = parts[1] === "1";
+    lastOk = Date.now(); lastEvent = lastOk;
+  }
+
+  // o zonă: culorile ei ca benzi (orizontal de la stânga, vertical de jos în sus)
+  function drawZone(z, W, H) {
+    var x = z.x * W / 100, y = z.y * H / 100, w = z.w * W / 100, h = z.h * H / 100;
+    var n = z.colors.length;
+    for (var i = 0; i < n; i++) {
+      ctx.fillStyle = z.colors[i];
+      if (z.v) { var y1 = y + h - (i + 1) * h / n; ctx.fillRect(x, Math.floor(y1), w, Math.ceil(h / n) + 1); }
+      else ctx.fillRect(Math.floor(x + i * w / n), y, Math.ceil(w / n) + 1, h);
+    }
+  }
+
+  var MARK = ["#ffffff", "#00ff66", "#ff00ff", "#00e5ff", "#ffee00", "#ff3300", "#8866ff"];
+  function drawMarks(W, H) {
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 2;
+    ctx.font = "bold 12px sans-serif";
+    for (var i = 0; i < zones.length; i++) {
+      var z = zones[i], col = MARK[i % MARK.length];
+      ctx.strokeStyle = col; ctx.fillStyle = col;
+      ctx.strokeRect(z.x * W / 100 + 1, z.y * H / 100 + 1, z.w * W / 100 - 2, z.h * H / 100 - 2);
+      ctx.fillText(String(i + 1), z.x * W / 100 + 4, z.y * H / 100 + 14);
+    }
   }
   window.onCanvasApiEvent = onCanvasApiEvent;
   var lastEvent = 0;
@@ -55,7 +99,8 @@
     xhr.onload = function () {
       try {
         var d = JSON.parse(xhr.responseText);
-        if (d.colors) { colors = d.colors; lastOk = Date.now(); }
+        if (d.event && d.event.indexOf("z|") === 0) readZones(d.event);
+        else if (d.colors) { colors = d.colors; zones = null; lastOk = Date.now(); }
         busy = false;
       } catch (e) { failed(); }
     };
@@ -71,7 +116,10 @@
     ctx.globalAlpha = 1;
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, w, h);
-    if (colors.length && !stale) {
+    if (zones && !stale) {
+      for (var k = 0; k < zones.length; k++) drawZone(zones[k], w, h);
+      if (showZones) drawMarks(w, h);
+    } else if (colors.length && !stale) {
       var n = colors.length;
       for (var i = 0; i < n; i++) {
         ctx.fillStyle = colors[i];

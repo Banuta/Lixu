@@ -405,6 +405,7 @@ function renderDevices() {
         <button class="btn small danger" data-act="del">✕</button>
       </td></tr>
       ${d.type === "govee" ? goveeOptions(d, i) : ""}
+      ${d.type === "signalrgb" ? srgbZones(d, i) : ""}
       <tr class="json" data-i="${i}" hidden><td colspan="7"><textarea data-f="json">${esc(JSON.stringify(d, null, 2))}</textarea></td></tr>`;
   }).join("");
 }
@@ -453,6 +454,61 @@ $("#kbRestore").onclick = async () => {
   try { await api("/api/kbmode", {value: null}); toast("Efectul tău e înapoi"); }
   catch (err) { toast("Eroare: " + err.message, 5000); }
 };
+
+// ---- SignalRGB: zone pe canvas (procente), fiecare cu efectul ei
+function zonesOf(d) { return d.zones || meta.signalrgb_zones || []; }
+function srgbZones(d, i) {
+  const zs = zonesOf(d);
+  const fx = cur => meta.effects.filter(e => e !== "keyboard").map(e =>
+    `<option value="${e}" ${cur === e ? "selected" : ""}>${esc(LABELS.effects[e] || e)}</option>`).join("");
+  const num = (k, z, j, max) => `<input type="number" data-z="${k}" data-j="${j}" value="${z[k] ?? ""}" min="0" max="${max}"
+    style="width:56px">`;
+  const rows = zs.map((z, j) => `<tr><td>${j + 1}</td>
+    <td><input data-z="name" data-j="${j}" value="${esc(z.name || "")}" style="width:190px"></td>
+    <td><select data-z="effect" data-j="${j}">${fx(z.effect || "ambient")}</select></td>
+    <td>${num("x", z, j, 100)} ${num("y", z, j, 100)} ${num("w", z, j, 100)} ${num("h", z, j, 100)}</td>
+    <td><label style="min-width:0"><input type="checkbox" data-z="vertical" data-j="${j}" ${z.vertical ? "checked" : ""}> vertical</label></td>
+    <td>${num("leds", z, j, 64)}</td>
+    <td>${j ? `<button class="btn small danger" data-zdel="${j}">✕</button>` : ""}</td></tr>`).join("");
+  return `<tr class="srgb" data-i="${i}"><td></td><td colspan="6" class="muted" style="font-size:12px">
+    <b>Zone pe canvasul SignalRGB</b> (procente din canvas; zona 1 e fundalul, celelalte se desenează peste ea).
+    <label style="min-width:0"><input type="checkbox" data-zshow ${d.show_zones ? "checked" : ""}> arată zonele în SignalRGB
+      (contur + număr, ca să le potrivești peste dispozitive)</label>
+    <table style="margin-top:6px"><tr class="muted"><td>#</td><td>nume</td><td>efect</td><td>x · y · lățime · înălțime (%)</td>
+      <td></td><td>bucăți</td><td></td></tr>${rows}</table>
+    <button class="btn small" data-zadd>+ zonă</button>
+    <button class="btn small" data-zreset>Zonele implicite</button>
+    <button class="btn small" data-zoff>O singură bandă (fără zone)</button>
+    </td></tr>`;
+}
+function editZones(i, fn) {
+  const d = cfg.devices[i];
+  d.zones = JSON.parse(JSON.stringify(zonesOf(d)));
+  fn(d); markDirty();
+}
+$("#devTable").addEventListener("change", e => {
+  const t = e.target, tr = t.closest("tr.srgb"); if (!tr) return;
+  const i = +tr.dataset.i;
+  if (t.hasAttribute("data-zshow")) { if (t.checked) cfg.devices[i].show_zones = true; else delete cfg.devices[i].show_zones; markDirty(); return; }
+  const k = t.dataset.z; if (!k) return;
+  const j = +t.dataset.j;
+  editZones(i, d => {
+    const z = d.zones[j];
+    if (k === "vertical") { if (t.checked) z.vertical = true; else delete z.vertical; }
+    else if (k === "name" || k === "effect") z[k] = t.value;
+    else z[k] = Math.max(k === "leds" ? 1 : 0, Math.min(k === "leds" ? 64 : 100, +t.value || 0));
+  });
+});
+$("#devTable").addEventListener("click", e => {
+  const t = e.target, tr = t.closest("tr.srgb"); if (!tr) return;
+  const i = +tr.dataset.i;
+  if (t.hasAttribute("data-zadd")) editZones(i, d => d.zones.push({name: "Zonă nouă", effect: "ambient", x: 0, y: 0, w: 20, h: 20, leds: 10}));
+  else if (t.hasAttribute("data-zdel")) editZones(i, d => d.zones.splice(+t.dataset.zdel, 1));
+  else if (t.hasAttribute("data-zreset")) { delete cfg.devices[i].zones; markDirty(); }
+  else if (t.hasAttribute("data-zoff")) { cfg.devices[i].zones = []; markDirty(); }
+  else return;
+  renderDevices();
+});
 
 // ---- Govee: segmente și grupuri direct din interfață (fără JSON)
 function splitGroups(n, k) {

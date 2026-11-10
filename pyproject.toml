@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicolors"
-version = "0.5.0"
+version = "0.6.0"
 description = "Lumini CS2 (Game State Integration) pentru tastatură, placă de bază, Logitech, WLED, Govee și Tuya; DPI, polling rate și baterie pentru mouse/căști Logitech"
 readme = "README.md"
 requires-python = ">=3.9"
