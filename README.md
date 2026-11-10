@@ -165,7 +165,9 @@ apasă **Save Profile**.
 
 ## Govee: segmente și grupuri
 
-Le scrii direct în `aicolors.json` (sau în interfață: Dispozitive -> JSON la rândul Govee).
+Cel mai simplu: în **Dispozitive**, sub rândul Govee, ai **Segmente** (20 la H619A, completat singur la
+scanare), **Grupare** (fiecare segment separat / 2 jumătăți / 4 grupuri / 5 grupuri), **inversează direcția**
+și **degrade**. Sau le scrii direct în `aicolors.json`:
 Câte o linie per dispozitiv:
 
 ```json
@@ -181,6 +183,7 @@ Câte o linie per dispozitiv:
 | `groups` | listă de grupuri de segmente (numerotate de la 0); fiecare grup e o „lumină”: cu `health`, bara de viață merge pe grupuri, în ordinea scrisă |
 | `hosts` | mai multe dispozitive Govee controlate împreună, ca un grup din aplicația Govee |
 | `gradient` | `true` = Govee face trecere lină între segmente (implicit: fiecare segment culoarea lui) |
+| `reverse` | `true` = bara (viață, gloanțe, bombă) pornește din celălalt capăt al benzii |
 | `device_brightness` | luminozitatea dispozitivului, 1-100 |
 
 H619A are 20 de segmente (la scanare se completează singur). Segmentele care nu apar în niciun grup

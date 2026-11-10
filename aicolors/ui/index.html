@@ -396,6 +396,7 @@ function renderDevices() {
         <button class="btn small" data-act="edit">JSON</button>
         <button class="btn small danger" data-act="del">✕</button>
       </td></tr>
+      ${d.type === "govee" ? goveeOptions(d, i) : ""}
       <tr class="json" data-i="${i}" hidden><td colspan="7"><textarea data-f="json">${esc(JSON.stringify(d, null, 2))}</textarea></td></tr>`;
   }).join("");
 }
@@ -444,6 +445,47 @@ $("#kbRestore").onclick = async () => {
   try { await api("/api/kbmode", {value: null}); toast("Efectul tău e înapoi"); }
   catch (err) { toast("Eroare: " + err.message, 5000); }
 };
+
+// ---- Govee: segmente și grupuri direct din interfață (fără JSON)
+function splitGroups(n, k) {
+  const out = [];
+  for (let g = 0; g < k; g++) {
+    const a = Math.round(g * n / k), b = Math.round((g + 1) * n / k);
+    out.push(Array.from({length: b - a}, (_, j) => a + j));
+  }
+  return out;
+}
+function groupPreset(d) {
+  if (!d.groups) return "none";
+  const n = d.segments || 0;
+  for (const k of [2, 4, 5]) if (JSON.stringify(d.groups) === JSON.stringify(splitGroups(n, k))) return String(k);
+  return "custom";
+}
+function goveeOptions(d, i) {
+  const p = groupPreset(d);
+  const opt = (v, l) => `<option value="${v}" ${p === v ? "selected" : ""}>${l}</option>`;
+  return `<tr class="govee" data-i="${i}"><td></td><td colspan="6" class="muted" style="font-size:12px">
+    Segmente <input type="number" data-g="segments" min="0" max="80" value="${d.segments || ""}" placeholder="0 = o culoare"
+      style="width:80px">
+    Grupare <select data-g="groups">${opt("none", "fiecare segment separat")}${opt("2", "2 jumătăți")}${opt("4", "4 grupuri")}
+      ${opt("5", "5 grupuri")}${p === "custom" ? opt("custom", "personalizat (JSON)") : ""}</select>
+    <label style="min-width:0"><input type="checkbox" data-g="reverse" ${d.reverse ? "checked" : ""}> inversează direcția</label>
+    <label style="min-width:0"><input type="checkbox" data-g="gradient" ${d.gradient ? "checked" : ""}> degrade</label>
+    </td></tr>`;
+}
+$("#devTable").addEventListener("change", e => {
+  const g = e.target.dataset.g; if (!g) return;
+  const i = +e.target.closest("tr").dataset.i, d = cfg.devices[i];
+  if (g === "segments") {
+    const n = Math.max(0, Math.min(80, +e.target.value || 0));
+    if (n) d.segments = n; else { delete d.segments; delete d.groups; }
+    if (d.groups && n) d.groups = splitGroups(n, d.groups.length);
+  } else if (g === "groups") {
+    if (e.target.value === "none") delete d.groups;
+    else if (e.target.value !== "custom" && d.segments) d.groups = splitGroups(d.segments, +e.target.value);
+  } else if (e.target.checked) d[g] = true; else delete d[g];
+  markDirty(); renderDevices();
+});
 
 $("#devTable").addEventListener("input", e => {
   const tr = e.target.closest("tr"), i = +tr.dataset.i, f = e.target.dataset.f;

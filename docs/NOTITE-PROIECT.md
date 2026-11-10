@@ -55,6 +55,8 @@ Interfață web (Edge `--app`) + iconiță lângă ceas (Deschide / Pauză / Por
   se verifică doar la început și din 15 în 15 (calea rapidă, ~0,2 s în loc de ~1,5 s per schimbare).
   Utilizatorul spusese că luminile „par în urmă” – asta era cauza principală.
 
+* Govee din interfață: sub rândul Govee – Segmente, Grupare (separat/2/4/5), inversează direcția (`reverse`), degrade.
+
 ## De făcut / în așteptare
 1. **Firmware tastatură (culori live)** – plan sigur: (1) utilizatorul trimite `kb_flash_backup.bin`, îl analizez (handler comenzi, buffer LED, loc liber); (2) testăm citirea prin bootloader cu `sinowealth-kb-tool` (doar citire); (3) abia apoi patch + scriere. Fără pasul 2 reușit, nu scriem.
 2. **Efect SignalRGB „CS2 Direct”** – început (`/api/game` gata), fișierul `aicolors/signalrgb/CS2Direct.html` nescris.

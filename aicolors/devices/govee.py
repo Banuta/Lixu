@@ -91,7 +91,8 @@ class GoveeDevice(Device):
 
     def __init__(self, host=None, name: Optional[str] = None, brightness: int = 100,
                  hosts: Optional[List[str]] = None, segments: Optional[int] = None,
-                 groups: Optional[List[List[int]]] = None, gradient: bool = False):
+                 groups: Optional[List[List[int]]] = None, gradient: bool = False, reverse: bool = False):
+        self.reverse = reverse
         targets = list(hosts or ([host] if host else []))
         if not targets:
             raise DeviceError("Govee: lipsește \"host\" sau \"hosts\"")
@@ -128,6 +129,8 @@ class GoveeDevice(Device):
             self._broadcast(razer_enable(True))
             self._razer_at = now
         seg_colors = expand_groups(colors, self.groups, self.segments) if self.groups else list(colors)
+        if self.reverse:  # bara pornește din celălalt capăt al benzii
+            seg_colors = seg_colors[::-1]
         self._broadcast(razer_frame(seg_colors, self.gradient))
 
     def close(self) -> None:
@@ -141,7 +144,7 @@ class GoveeDevice(Device):
 def from_config(entry: dict) -> Device:
     return GoveeDevice(entry.get("host"), entry.get("name"), entry.get("device_brightness", 100),
                        hosts=entry.get("hosts"), segments=entry.get("segments"), groups=entry.get("groups"),
-                       gradient=bool(entry.get("gradient", False)))
+                       gradient=bool(entry.get("gradient", False)), reverse=bool(entry.get("reverse", False)))
 
 
 def discover(timeout: float = 2.0) -> List[Found]:

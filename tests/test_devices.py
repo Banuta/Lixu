@@ -741,3 +741,16 @@ class KbFastPathTest(unittest.TestCase):
         self.assertEqual(link.reads, reads)            # calea rapidă: nicio citire
         self.assertEqual(link.mem[0xB600][0x0D], 3)
         self.assertEqual(bytes(link.mem[0xB800]), bytes([2]) * 1024)
+
+
+class GoveeReverseTest(unittest.TestCase):
+    def test_reverse_flips_segment_order(self):
+        import base64
+
+        sent = []
+        dev = govee.GoveeDevice("127.0.0.1", segments=3, reverse=True)
+        dev._broadcast = lambda data: sent.append(data)
+        dev.send([(1, 0, 0), (2, 0, 0), (3, 0, 0)])
+        raw = base64.b64decode(json.loads(sent[-1])["msg"]["data"]["pt"])
+        self.assertEqual(raw[6:15], bytes((3, 0, 0, 2, 0, 0, 1, 0, 0)))
+        dev._sock.close()
