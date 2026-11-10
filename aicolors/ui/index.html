@@ -173,6 +173,16 @@
       <div id="palette"></div>
       <div class="row"><button class="btn" id="paletteReset">Culorile implicite</button></div>
     </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Evenimente <span class="sub">pe toate dispozitivele</span></h2>
+      <div class="row"><label>Rundă câștigată T</label><select id="evWinT"></select></div>
+      <div class="row"><label>Rundă câștigată CT</label><select id="evWinCT"></select></div>
+      <div class="row"><label style="min-width:0"><input type="checkbox" id="evDamage"> flash roșu când iei damage
+        (mai puternic cu cât iei mai mult)</label></div>
+      <div class="row"><label style="min-width:0"><input type="checkbox" id="evKills"> flash la kill (auriu; mov la
+        headshot)</label></div>
+      <p class="muted" style="font-size:12px">Încearcă-le din Live → Simulează.</p>
+    </div>
     <div class="savebar"><button class="btn primary" data-save>Salvează</button></div>
   </section>
 
@@ -289,15 +299,17 @@ const LABELS = {
             helmet: "Armură + cască", ammo: "Gloanțe", kill: "Kill", headshot: "Headshot",
             bomb: "Bombă", fire: "Foc", dead: "Mort"},
   effects: {keyboard: "Tastatură (complet)", ambient: "Ambient (echipă + evenimente)", team: "Doar echipa",
-            health: "Viață", armor: "Armură", ammo: "Gloanțe"},
+            health: "Viață", armor: "Armură", ammo: "Gloanțe", bomb: "Timp bombă"},
+  winStyles: {blink: "Clipește", flash: "Flash", pulse: "Puls"},
   // efectele tastaturii ZENKABEAT (numărul = poziția din listă; 12 = Reaction și 21 = stins, confirmate)
   kbModes: ["", "Lumină fixă", "Respirație", "Curcubeu", "Flash", "Picături", "Roată curcubeu", "Valuri",
             "Stele", "Umbre", "Șarpe", "Neon", "Reacție la taste", "Sinusoidă", "Scanare", "Moară",
             "Cascadă", "Înflorire", "Furtună", "Coliziune", "Perfect", "Stins / Game mode", "Oprit"],
   scenes: {menu: "Meniu / desktop", ct: "Joc ca CT", t: "Joc ca T", bomb: "Bombă plantată", dead: "Mort",
-           low_hp: "Viață sub 25"},
+           low_hp: "Viață sub 25", win_ct: "Rundă câștigată CT", win_t: "Rundă câștigată T"},
   sims: {menu: "Meniu", ct: "CT full HP", t_low: "T, HP mic, fără gloanțe", bomb: "Bombă plantată",
-         flash: "Flash", fire: "Foc", dead: "Mort", win: "Rundă câștigată"},
+         flash: "Flash", fire: "Foc", dead: "Mort", win: "Rundă câștigată CT", win_t: "Rundă câștigată T",
+         hit: "Iei damage", kill: "Kill"},
 };
 
 // ------------------------------------------------------------------ tab-uri
@@ -544,6 +556,17 @@ $("#palette").addEventListener("input", e => {
   const k = e.target.dataset.c; if (!k) return;
   cfg.colors[k] = e.target.value; e.target.nextElementSibling.textContent = e.target.value; markDirty();
 });
+function renderEvents() {
+  const ev = Object.assign({damage: true, kills: true, win_t: "blink", win_ct: "flash"}, cfg.events || {});
+  const opts = v => Object.entries(LABELS.winStyles).map(([k, l]) => `<option value="${k}" ${k === v ? "selected" : ""}>${l}</option>`).join("");
+  $("#evWinT").innerHTML = opts(ev.win_t); $("#evWinCT").innerHTML = opts(ev.win_ct);
+  $("#evDamage").checked = ev.damage; $("#evKills").checked = ev.kills;
+}
+const evSet = (k, v) => { cfg.events = Object.assign({}, cfg.events || {}, {[k]: v}); markDirty(); };
+$("#evWinT").onchange = e => evSet("win_t", e.target.value);
+$("#evWinCT").onchange = e => evSet("win_ct", e.target.value);
+$("#evDamage").onchange = e => evSet("damage", e.target.checked);
+$("#evKills").onchange = e => evSet("kills", e.target.checked);
 $("#paletteReset").onclick = () => { cfg.colors = {...meta.default_palette}; renderPalette(); markDirty(); };
 
 // ------------------------------------------------------------------ SETĂRI
@@ -630,7 +653,7 @@ document.querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
 window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
 
 // ------------------------------------------------------------------ pornire + actualizare
-function renderAll() { renderDevices(); renderKeyboardModes(); renderPalette(); renderSettings(); }
+function renderAll() { renderDevices(); renderKeyboardModes(); renderPalette(); renderEvents(); renderSettings(); }
 
 async function poll() {
   if (document.visibilityState === "visible") {

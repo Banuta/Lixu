@@ -25,7 +25,7 @@ from . import layout
 from .gsi import GameState
 from .protocol import LED_COUNT, RGB
 
-T_COLOR: RGB = (255, 110, 0)
+T_COLOR: RGB = (255, 0, 0)
 CT_COLOR: RGB = (0, 110, 255)
 IDLE_COLOR: RGB = (120, 40, 255)
 ARMOR_COLOR: RGB = (40, 160, 255)
@@ -72,6 +72,29 @@ def apply_palette(colors: Dict[str, str]) -> None:
 BOMB_TIMER = 40.0
 BOMB_END_FLASH = 3.0
 ROUND_END_FLASH = 4.0
+DAMAGE_FLASH = 0.45
+KILL_FLASH = 0.35
+
+# Evenimente (din config "events" / interfață, tab-ul Culori)
+WIN_STYLES = ("blink", "flash", "pulse")
+EVENTS: Dict[str, object] = {"damage": True, "kills": True, "win_t": "blink", "win_ct": "flash"}
+
+
+def apply_event_settings(settings: Optional[Dict[str, object]]) -> None:
+    for key, value in (settings or {}).items():
+        if key in ("damage", "kills"):
+            EVENTS[key] = bool(value)
+        elif key in ("win_t", "win_ct") and value in WIN_STYLES:
+            EVENTS[key] = value
+
+
+def win_amount(style: object, age: float) -> float:
+    """Cât de aprinsă e culoarea câștigătorilor la `age` secunde după final de rundă."""
+    if style == "blink":    # pornit/oprit, de 3 ori pe secundă
+        return 1.0 if int(age * 6) % 2 == 0 else 0.0
+    if style == "flash":    # aprindere puternică, apoi stingere lină, la fiecare 0,8 s
+        return max(0.0, 1.0 - (age % 0.8) / 0.5)
+    return 0.4 + 0.5 * pulse(age, 1.5)
 
 
 # ---------------------------------------------------------------- utilitare
@@ -148,7 +171,23 @@ def apply_events(colors: List[RGB], st: GameState, now: float,
     if st.round_phase == "over" and st.round_over_at is not None and st.win_team:
         age = now - st.round_over_at
         if age < ROUND_END_FLASH:
-            colors = [mix(c, team_color(st.win_team), 0.4 + 0.5 * pulse(age, 1.5)) for c in colors]
+            style = EVENTS["win_t" if st.win_team == "T" else "win_ct"]
+            amount = win_amount(style, age)
+            target = team_color(st.win_team)
+            if style == "blink":  # clipire: culoarea echipei sau stins
+                colors = [target if amount else OFF for _ in colors]
+            else:
+                colors = [mix(c, target, amount) for c in colors]
+
+    if EVENTS["damage"] and st.alive and st.damage_at is not None:
+        age = now - st.damage_at
+        if age < DAMAGE_FLASH:
+            amount = min(1.0, 0.35 + st.damage / 50) * (1 - age / DAMAGE_FLASH)
+            colors = [mix(c, (255, 0, 0), amount) for c in colors]
+    if EVENTS["kills"] and st.kill_at is not None:
+        age = now - st.kill_at
+        if age < KILL_FLASH:
+            colors = [mix(c, HS_COLOR if st.kill_hs else KILL_COLOR, 0.9 * (1 - age / KILL_FLASH)) for c in colors]
 
     if st.alive and st.burning:
         amount = (st.burning / 255) * (0.6 + 0.4 * pulse(now, 3))
@@ -169,6 +208,10 @@ def is_animating(st: Optional[GameState], now: float) -> bool:
         return True
     if st.round_over_at is not None and now - st.round_over_at < ROUND_END_FLASH:
         return True
+    if st.damage_at is not None and now - st.damage_at < DAMAGE_FLASH:
+        return True
+    if st.kill_at is not None and now - st.kill_at < KILL_FLASH:
+        return True
     if st.alive and (st.health <= 25 or st.burning or ammo_empty(st)):
         return True
     return False
@@ -176,13 +219,16 @@ def is_animating(st: Optional[GameState], now: float) -> bool:
 
 # ------------------------------------------------- situații (tastatura fără canal live)
 
-SCENES = ["menu", "ct", "t", "bomb", "dead", "low_hp"]
+SCENES = ["menu", "ct", "t", "bomb", "dead", "low_hp", "win_ct", "win_t"]
 
 
 def scene(st: Optional[GameState], now: float) -> str:
     """Situația din joc, pentru dispozitivele care pot doar schimba efectul (ZENKABEAT)."""
     if st is None or not st.in_game:
         return "menu"
+    if st.round_phase == "over" and st.win_team and st.round_over_at is not None \
+            and now - st.round_over_at < ROUND_END_FLASH:
+        return "win_ct" if st.win_team == "CT" else "win_t"
     if st.bomb == "planted":
         return "bomb"
     if not st.alive:
@@ -239,6 +285,14 @@ def strip_ammo(st: GameState, now: float, n: int) -> List[RGB]:
     return bar(n, frac, color)
 
 
+def strip_bomb(st: GameState, now: float, n: int) -> List[RGB]:
+    """Timpul rămas până explodează bomba, ca bară roșie; altfel culoarea echipei, slab."""
+    if st.bomb == "planted" and st.bomb_planted_at is not None:
+        remaining = max(0.0, BOMB_TIMER - (now - st.bomb_planted_at))
+        return bar(n, remaining / BOMB_TIMER, BOMB_COLOR, empty=(20, 0, 0))
+    return [scale(team_color(st.team), 0.3)] * n
+
+
 StripEffect = Callable[[GameState, float, int], List[RGB]]
 
 STRIP_EFFECTS: Dict[str, StripEffect] = {
@@ -247,6 +301,7 @@ STRIP_EFFECTS: Dict[str, StripEffect] = {
     "health": strip_health,
     "armor": strip_armor,
     "ammo": strip_ammo,
+    "bomb": strip_bomb,
 }
 
 
@@ -260,6 +315,8 @@ def strip(st: Optional[GameState], now: float, n: int, effect: str = "ambient") 
     except KeyError:
         raise ValueError(f"efect necunoscut: {effect!r} (alege din {', '.join(STRIP_EFFECTS)})") from None
     colors = fn(st, now, n)
+    if effect == "bomb" and st.bomb == "planted":
+        return [to_rgb(c) for c in colors]  # bara de timp rămâne curată, fără pulsul roșu peste ea
     if effect != "team":
         colors = apply_events(colors, st, now)
     return [to_rgb(c) for c in colors]

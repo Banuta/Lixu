@@ -47,6 +47,10 @@ SIMULATIONS: Dict[str, Dict[str, Any]] = {
              "player": {"team": "T", "activity": "playing", "state": {"health": 55, "armor": 0, "burning": 255}}},
     "dead": {"map": {"phase": "live"}, "round": {"phase": "live"},
              "player": {"team": "T", "activity": "playing", "state": {"health": 0}}},
+    "win_t": {"map": {"phase": "live"}, "round": {"phase": "over", "win_team": "T", "bomb": "exploded"},
+              "player": {"team": "T", "activity": "playing", "state": {"health": 55, "armor": 40}}},
+    "hit": None,   # calculate din starea curentă (vezi App.simulate)
+    "kill": None,
     "win": {"map": {"phase": "live"}, "round": {"phase": "over", "win_team": "CT", "bomb": "defused"},
             "player": {"team": "CT", "activity": "playing", "state": {"health": 40, "armor": 20}}},
 }
@@ -93,6 +97,7 @@ class App:
         self.cfg = cfg
         self.dry_run = dry_run
         effects.apply_palette(cfg.colors)
+        effects.apply_event_settings(cfg.events)
         self.store = StateStore()
         self.engine = Engine(cfg.active_devices, self.store, fps=cfg.fps, idle_fps=cfg.idle_fps,
                              brightness=cfg.brightness, dry_run=dry_run, preview=preview, workers=True)
@@ -216,7 +221,8 @@ class App:
     def save_config(self, data: Dict[str, Any]) -> Dict[str, Any]:
         data = {k: v for k, v in data.items() if k != "path"}
         new = configmod.from_dict(data, self.cfg.path)
-        effects.apply_palette(new.colors)
+        effects.apply_palette(dict(DEFAULT_PALETTE, **new.colors))
+        effects.apply_event_settings(new.events)
         if (new.host, new.port, new.token, new.ui_port) != (self.cfg.host, self.cfg.port, self.cfg.token,
                                                             self.cfg.ui_port):
             self.restart_needed = True
@@ -242,7 +248,21 @@ class App:
     def simulate(self, preset: str) -> Dict[str, Any]:
         if preset not in SIMULATIONS:
             raise KeyError(preset)
-        self.store.update(SIMULATIONS[preset])
+        if preset in ("hit", "kill"):
+            st = self.store.get()
+            base = st.raw if st.in_game and st.alive and st.round_phase == "live" else SIMULATIONS["ct"]
+            if base is SIMULATIONS["ct"]:
+                self.store.update(base)
+            payload = json.loads(json.dumps(base))
+            state = payload.setdefault("player", {}).setdefault("state", {})
+            if preset == "hit":
+                state["health"] = max(1, int(state.get("health", 100)) - 35)
+            else:
+                state["round_kills"] = int(state.get("round_kills", 0)) + 1
+                state["round_killhs"] = int(state.get("round_killhs", 0)) + (state["round_kills"] % 2)
+            self.store.update(payload)
+        else:
+            self.store.update(SIMULATIONS[preset])
         return {"ok": True}
 
     def install_cfg(self, cs2_dir: Optional[str] = None) -> Dict[str, Any]:

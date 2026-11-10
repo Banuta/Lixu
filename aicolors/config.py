@@ -30,6 +30,8 @@ class Config:
     ui_port: int = 3001
     openrgb: Dict[str, Any] = field(default_factory=lambda: {"autostart": False})
     lights_off_on_shutdown: bool = True
+    events: Dict[str, Any] = field(default_factory=lambda: {"damage": True, "kills": True,
+                                                            "win_t": "blink", "win_ct": "flash"})
     path: Optional[Path] = None
 
     @property
@@ -47,6 +49,7 @@ class Config:
             "ui_port": self.ui_port,
             "openrgb": self.openrgb,
             "lights_off_on_shutdown": self.lights_off_on_shutdown,
+            "events": self.events,
             "devices": self.devices,
         }
 
@@ -68,8 +71,15 @@ def find_config(explicit: Optional[str] = None) -> Optional[Path]:
     return None
 
 
+OLD_DEFAULT_COLORS = {"t": "#ff6e00"}  # portocaliul vechi pentru T; acum T e roșu
+
+
 def from_dict(data: Dict[str, Any], path: Optional[Path] = None) -> Config:
     gsi = data.get("gsi", {})
+    colors = dict(data.get("colors") or {})
+    for key, old in OLD_DEFAULT_COLORS.items():
+        if colors.get(key, "").lower() == old:
+            colors.pop(key)
     devices = [dict(d) for d in data.get("devices", DEFAULT_DEVICES)]
     for d in devices:
         if "type" not in d:
@@ -82,11 +92,13 @@ def from_dict(data: Dict[str, Any], path: Optional[Path] = None) -> Config:
         idle_fps=float(data.get("idle_fps", 10.0)),
         brightness=float(data.get("brightness", 1.0)),
         devices=devices,
-        colors=dict(data.get("colors") or {}),
+        colors=colors,
         peripherals=dict(data.get("peripherals") or {"enabled": True, "poll_seconds": 60}),
         ui_port=int(data.get("ui_port", 3001)),
         openrgb=dict(data.get("openrgb") or {"autostart": False}),
         lights_off_on_shutdown=bool(data.get("lights_off_on_shutdown", True)),
+        events=dict({"damage": True, "kills": True, "win_t": "blink", "win_ct": "flash"},
+                    **(data.get("events") or {})),
         path=path,
     )
 

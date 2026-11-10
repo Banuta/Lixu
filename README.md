@@ -199,6 +199,9 @@ Se editează din interfață, dar e și un fișier simplu. Exemplu: [aicolors.ex
 | `team` | doar culoarea echipei, fără evenimente |
 | `health` / `armor` / `ammo` | bară de viață / armură / gloanțe |
 
+Culorile de echipă: **T roșu, CT albastru**. La final de rundă: **T câștigă = clipește roșu, CT câștigă =
+flash albastru** (se schimbă în Culori -> Evenimente: Clipește / Flash / Puls). Flash roșu scurt când iei
+damage, auriu la kill (mov la headshot).
 Peste toate (în afară de `team`) se pun evenimentele: bombă plantată (puls roșu tot mai rapid),
 defuzată/explodată, final de rundă, flashbang, foc, mort.
 

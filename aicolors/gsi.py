@@ -67,6 +67,10 @@ class GameState:
     bomb_planted_at: Optional[float] = None
     round_over_at: Optional[float] = None
     bomb_ended_at: Optional[float] = None
+    damage_at: Optional[float] = None   # când a scăzut viața (pentru flash-ul de damage)
+    damage: int = 0                     # cât s-a pierdut atunci
+    kill_at: Optional[float] = None     # când a crescut numărul de kill-uri din rundă
+    kill_hs: bool = False
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -131,6 +135,15 @@ def parse_state(payload: Dict[str, Any], previous: Optional[GameState] = None,
     st.round_over_at = prev.round_over_at if st.round_phase == "over" else None
     if st.round_phase == "over" and prev.round_phase != "over":
         st.round_over_at = now
+
+    # damage și kill-uri: doar față de starea anterioară a aceluiași jucător, în aceeași echipă
+    st.damage_at, st.damage = prev.damage_at, prev.damage
+    st.kill_at, st.kill_hs = prev.kill_at, prev.kill_hs
+    if previous is not None and prev.in_game and prev.team == st.team and st.is_local_player:
+        if st.health < prev.health:
+            st.damage_at, st.damage = now, prev.health - st.health
+        if st.round_kills > prev.round_kills:
+            st.kill_at, st.kill_hs = now, st.round_killhs > prev.round_killhs
     return st
 
 

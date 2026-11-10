@@ -28,6 +28,17 @@ class KbModeWriter:
         self.link = link
         self.method: Optional[str] = None  # "profile" sau "page", după prima scriere reușită
         self.writes = 0
+        # Calea rapidă: după 2 scrieri verificate scriem direct din memorie, fără recitiri
+        # (o schimbare durează ~0,2 s în loc de ~1,5 s); reverificăm din 15 în 15 scrieri.
+        self.verified = 0
+        self._settings: Optional[bytes] = None
+        self._palette: Optional[bytes] = None
+
+    VERIFY_EVERY = 15
+    WRITE_PAUSE = 0.08
+
+    def _fast(self) -> bool:
+        return self.verified >= 2 and self.writes % self.VERIFY_EVERY != 0
 
     def _stable(self, page: int) -> bytes:
         a = self.link.read_page(page << 8)
@@ -37,7 +48,8 @@ class KbModeWriter:
         return a
 
     def current(self) -> int:
-        return self._stable(protocol.SETTINGS_PAGE)[protocol.MODE_OFFSET]
+        self._settings = self._stable(protocol.SETTINGS_PAGE)
+        return self._settings[protocol.MODE_OFFSET]
 
     def _via_profile(self, page: bytes, value: int) -> bool:
         new = bytearray(page)
@@ -62,7 +74,19 @@ class KbModeWriter:
         același (tastatura își reîncarcă atunci setările, inclusiv paleta)."""
         if not 0 <= value <= MAX_MODE:
             raise ValueError(f"efect invalid: {value}")
+        if self.method == "profile" and self._settings is not None and self._fast():
+            if self._settings[protocol.MODE_OFFSET] == value and not force:
+                return True
+            new = bytearray(self._settings)
+            new[protocol.MODE_OFFSET] = value
+            self.link.data.set_feature(protocol.profile_write_packet(protocol.SETTINGS_PAGE,
+                                                                     bytes(new[:protocol.PROFILE_LEN])))
+            self.writes += 1
+            self._settings = bytes(new)
+            time.sleep(self.WRITE_PAUSE)
+            return True
         page = self._stable(protocol.SETTINGS_PAGE)
+        self._settings = page
         if page[protocol.MODE_OFFSET] == value and not force:
             return True
         order = ["profile", "page"] if self.method != "page" else ["page"]
@@ -73,6 +97,10 @@ class KbModeWriter:
                 if self.method != method:
                     log.info("Tastatura acceptă scrierea efectului prin metoda %s", method)
                 self.method = method
+                self.verified += 1
+                new = bytearray(page)
+                new[protocol.MODE_OFFSET] = value
+                self._settings = bytes(new)
                 return True
             if method == "profile":
                 # profilul nu a mers: poate a schimbat efectul, dar a stricat restul paginii -> oprim
@@ -85,18 +113,33 @@ class KbModeWriter:
     # ------------------------------------------------------------ paleta
 
     def read_palette(self) -> bytes:
-        return self._stable(PALETTE_PAGE)
+        self._palette = self._stable(PALETTE_PAGE)
+        return self._palette
 
     def write_palette(self, table: bytes) -> bool:
-        """Scrie paleta (1024 bytes la 0xB800) și verifică prin recitire; nu scrie dacă e deja la fel."""
+        """Scrie paleta (1024 bytes la 0xB800); nu scrie dacă e deja la fel. Verifică prin recitire
+        la început și din 15 în 15 scrieri (calea rapidă între ele)."""
         if len(table) != PALETTE_LEN:
             raise ValueError("paleta are 1024 bytes")
+        if self._palette is not None and self._fast():
+            if self._palette == table:
+                return True
+            self.link.data.set_feature(protocol.write_packet(PALETTE_PAGE, table))
+            self.writes += 1
+            self._palette = bytes(table)
+            time.sleep(self.WRITE_PAUSE)
+            return True
         if self._stable(PALETTE_PAGE) == table:
+            self._palette = bytes(table)
             return True
         self.link.data.set_feature(protocol.write_packet(PALETTE_PAGE, table))
         self.writes += 1
         time.sleep(0.25)
-        return self._stable(PALETTE_PAGE) == table
+        ok = self._stable(PALETTE_PAGE) == table
+        if ok:
+            self.verified += 1
+            self._palette = bytes(table)
+        return ok
 
     def close(self) -> None:
         self.link.close()

@@ -45,6 +45,14 @@ Limba de lucru: **română**. Codul e pe branch-ul `ccr-0ddab67e-06mfdx` din `Ba
 ## Ce face aplicația acum (v20)
 Interfață web (Edge `--app`) + iconiță lângă ceas (Deschide / Pauză / Pornește cu Windows / Ieșire, notificări baterie), motor cu fir propriu per dispozitiv (nu se mai blochează), efecte (keyboard/ambient/team/health/armor/ammo + evenimente), dispozitive: zenkabeat (efecte + culori automate), wled, govee (segmente/grupuri/hosts), logitech (HID++ sau G HUB), openrgb (zone, RAM toate plăcuțele), tuya (chei din cont în UI), signalrgb (punte + efect „AI Colors CS2”), OpenRGB descărcat/pornit din UI, stinge luminile la oprirea Windows, `/api/game` (stare brută CS2, CORS).
 
+## Efecte (cererea utilizatorului)
+* T = roșu (`#ff0000`, vechiul `#ff6e00` salvat se migrează), CT = albastru.
+* Final de rundă: T câștigă = **clipește roșu**, CT câștigă = **flash albastru** (config `events.win_t/win_ct`: blink/flash/pulse).
+* Flash de damage (roșu, după cât ai pierdut), flash la kill (auriu / mov HS), efect de bandă `bomb` (timp rămas).
+* Tastatura: situațiile `win_ct`/`win_t` au culoarea echipei; pauza dintre scrieri 1 s (era 3 s); scrierile
+  se verifică doar la început și din 15 în 15 (calea rapidă, ~0,2 s în loc de ~1,5 s per schimbare).
+  Utilizatorul spusese că luminile „par în urmă” – asta era cauza principală.
+
 ## De făcut / în așteptare
 1. **Firmware tastatură (culori live)** – plan sigur: (1) utilizatorul trimite `kb_flash_backup.bin`, îl analizez (handler comenzi, buffer LED, loc liber); (2) testăm citirea prin bootloader cu `sinowealth-kb-tool` (doar citire); (3) abia apoi patch + scriere. Fără pasul 2 reușit, nu scriem.
 2. **Efect SignalRGB „CS2 Direct”** – început (`/api/game` gata), fișierul `aicolors/signalrgb/CS2Direct.html` nescris.

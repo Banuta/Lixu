@@ -413,9 +413,9 @@ class ZenkabeatModesTest(unittest.TestCase):
         eng.tick(100.0)
         self.assertEqual(w.calls, [1])
         store.update(dict(LIVE, round={"phase": "live", "bomb": "planted"}), now=100)
-        eng.tick(101.0)                       # sub 3 s de la ultima scriere -> așteaptă
+        eng.tick(100.5)                       # sub 1 s de la ultima scriere -> așteaptă
         self.assertEqual(w.calls, [1])
-        eng.tick(103.5)
+        eng.tick(101.2)
         self.assertEqual(w.calls, [1, 4])
         snap = eng.snapshot()[0]
         self.assertEqual((snap["scene"], snap["mode"], snap["original_mode"], snap["colors"]), ("bomb", 4, 2, []))
@@ -644,3 +644,98 @@ class BlackoutTest(unittest.TestCase):
         self.assertTrue(eng.paused)
         eng.tick(11.0)                                            # după blackout nu mai trimite nimic
         self.assertEqual(wled.frames_sent, 2)
+
+
+class NewEventsTest(unittest.TestCase):
+    def setUp(self):
+        self.saved = dict(effects.EVENTS)
+
+    def tearDown(self):
+        effects.EVENTS.clear()
+        effects.EVENTS.update(self.saved)
+
+    def test_damage_and_kill_detected(self):
+        st = parse_state(LIVE, now=0)
+        hurt = dict(LIVE, player=dict(LIVE["player"], state={"health": 20, "armor": 100}))
+        st2 = parse_state(hurt, st, now=10)
+        self.assertEqual((st2.damage_at, st2.damage), (10, 30))
+        out = effects.strip(st2, 10.05, 3, "team")      # "team" fără evenimente
+        flash = effects.strip(st2, 10.05, 3, "ambient")
+        self.assertGreater(flash[0][0], out[0][0])       # roșu în plus
+        self.assertTrue(effects.is_animating(st2, 10.1))
+        killed = dict(hurt, player=dict(hurt["player"], state={"health": 20, "round_kills": 1, "round_killhs": 1}))
+        st3 = parse_state(killed, st2, now=11)
+        self.assertEqual((st3.kill_at, st3.kill_hs), (11, True))
+        new_round = dict(LIVE, player=dict(LIVE["player"], state={"health": 100}))
+        st4 = parse_state(new_round, st3, now=20)        # viața crește la rundă nouă: nu e damage
+        self.assertEqual(st4.damage_at, 10)
+
+    def test_win_styles(self):
+        self.assertEqual(effects.win_amount("blink", 0.05), 1.0)
+        self.assertEqual(effects.win_amount("blink", 0.2), 0.0)
+        self.assertAlmostEqual(effects.win_amount("flash", 0.0), 1.0)
+        self.assertEqual(effects.win_amount("flash", 0.6), 0.0)
+        win_t = {"map": {"phase": "live"}, "round": {"phase": "over", "win_team": "T"},
+                 "player": {"team": "CT", "activity": "playing", "state": {"health": 50}}}
+        st = parse_state(win_t, parse_state(LIVE, now=0), now=5)
+        self.assertEqual(effects.strip(st, 5.05, 2, "ambient"), [effects.to_rgb(effects.T_COLOR)] * 2)
+        self.assertEqual(effects.strip(st, 5.2, 2, "ambient"), [(0, 0, 0)] * 2)
+        self.assertEqual(effects.scene(st, 5.5), "win_t")
+        effects.apply_event_settings({"win_t": "pulse", "damage": False, "win_ct": "nope"})
+        self.assertEqual((effects.EVENTS["win_t"], effects.EVENTS["damage"], effects.EVENTS["win_ct"]),
+                         ("pulse", False, "flash"))
+
+    def test_bomb_timer_strip(self):
+        planted = dict(LIVE, round={"phase": "live", "bomb": "planted"})
+        st = parse_state(planted, parse_state(LIVE, now=0), now=0)
+        out = effects.strip(st, 20.0, 10, "bomb")        # 20 s din 40 -> jumătate din bară
+        self.assertEqual(out[4], effects.to_rgb(effects.BOMB_COLOR))
+        self.assertEqual(out[5], (20, 0, 0))
+
+    def test_t_color_red_and_old_default_migrated(self):
+        self.assertEqual(effects.T_COLOR[0], 255)
+        cfg = configmod.from_dict({"colors": {"t": "#FF6E00", "ct": "#0000ff"}})
+        self.assertEqual(cfg.colors, {"ct": "#0000ff"})
+
+
+class KbFastPathTest(unittest.TestCase):
+    """KbModeWriter cu o tastatură simulată: după 2 scrieri verificate nu mai recitește."""
+
+    class Link:
+        def __init__(self):
+            self.mem = {0xB600: bytearray(1024), 0xB800: bytearray(1024)}
+            self.mem[0xB600][0x0D] = 2
+            self.reads = 0
+            self.data = self
+
+        def read_page(self, addr):
+            self.reads += 1
+            return bytes(self.mem[addr])
+
+        def set_feature(self, pkt):
+            op, page = pkt[1], pkt[2]
+            if op == 0x03:
+                self.mem[page << 8][:254] = pkt[8:8 + 254]
+            elif op == 0x08:
+                self.mem[page << 8][:] = pkt[8:8 + 1024]
+
+        def close(self):
+            pass
+
+    def test_fast_after_verified(self):
+        from aicolors import kbmode
+
+        link = self.Link()
+        w = kbmode.KbModeWriter(link)
+        w.WRITE_PAUSE = 0
+        self.assertEqual(w.current(), 2)
+        w.set_mode(1)
+        w.write_palette(bytes([1]) * 1024)
+        self.assertEqual(w.verified, 2)
+        reads = link.reads
+        w.write_palette(bytes([2]) * 1024)
+        w.set_mode(1, force=True)
+        w.set_mode(3)
+        self.assertEqual(link.reads, reads)            # calea rapidă: nicio citire
+        self.assertEqual(link.mem[0xB600][0x0D], 3)
+        self.assertEqual(bytes(link.mem[0xB800]), bytes([2]) * 1024)

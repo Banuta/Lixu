@@ -147,7 +147,7 @@ class ZenkabeatModeKeyboard(Device):
     """
 
     kind = "zenkabeat"
-    min_interval = 3.0
+    min_interval = 1.0
     keepalive = 1e9
     scene_based = True
     DEFAULT_MODES = {"bomb": 4}
@@ -188,6 +188,7 @@ class ZenkabeatModeKeyboard(Device):
         return {
             "ct": effects.CT_COLOR, "t": effects.T_COLOR, "bomb": effects.BOMB_COLOR,
             "dead": effects.DEAD_COLOR, "low_hp": (255, 0, 0), "identify": (255, 255, 255),
+            "win_ct": effects.CT_COLOR, "win_t": effects.T_COLOR,
         }.get(scene)
 
     def _apply_auto(self, scene: str) -> None:
