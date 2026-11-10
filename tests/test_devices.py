@@ -628,3 +628,19 @@ class KbOriginalPaletteTest(unittest.TestCase):
                         os.environ.pop(k, None)
                     else:
                         os.environ[k] = v
+
+
+class BlackoutTest(unittest.TestCase):
+    def test_blackout_turns_lights_off_but_not_keyboard(self):
+        store = StateStore()
+        eng = Engine([{"type": "wled", "leds": 3}, {"type": "govee"}, {"type": "zenkabeat"}], store, dry_run=True)
+        store.update(LIVE, now=0)
+        eng.tick(10.0)
+        eng.blackout()
+        wled, gov, kb = (o.device for o in eng.outputs)
+        self.assertEqual(wled.last_frame, [(0, 0, 0)] * 3)
+        self.assertEqual(gov.last_frame, [(0, 0, 0)])
+        self.assertNotEqual(kb.last_frame, [(0, 0, 0)] * 126)   # tastatura nu e înnegrită
+        self.assertTrue(eng.paused)
+        eng.tick(11.0)                                            # după blackout nu mai trimite nimic
+        self.assertEqual(wled.frames_sent, 2)

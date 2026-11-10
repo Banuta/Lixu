@@ -242,6 +242,8 @@
         <h2>Pornire</h2>
         <div class="row"><label style="min-width:0"><input type="checkbox" id="autoStart"> pornește AI Colors odată cu
           Windows (direct lângă ceas, fără fereastră)</label></div>
+        <div class="row"><label style="min-width:0"><input type="checkbox" id="offOnShutdown"> stinge luminile la oprirea
+          PC-ului (plăci, benzi, becuri; tastatura revine la efectul tău)</label></div>
         <p class="muted" style="font-size:12px">AI Colors stă lângă ceas: click pe iconiță deschide fereastra asta, click
           dreapta are Pauză și Ieșire. Poți închide fereastra oricând.</p>
       </div>
@@ -552,6 +554,7 @@ function renderSettings() {
   $("#setPerEnabled").checked = cfg.peripherals.enabled !== false;
   $("#setPerPoll").value = cfg.peripherals.poll_seconds || 60;
   $("#orgbAuto").checked = !!(cfg.openrgb && cfg.openrgb.autostart);
+  $("#offOnShutdown").checked = cfg.lights_off_on_shutdown !== false;
   $("#cfgPath").textContent = cfg.path ? "Fișier: " + cfg.path : "Fișierul aicolors.json se creează la prima salvare.";
 }
 const bind = (id, fn) => $(id).addEventListener("input", e => { fn(e.target); markDirty(); });
@@ -583,6 +586,7 @@ $("#orgbStart").onclick = async () => {
   try { await openrgb("start"); toast("Confirmă în fereastra Windows; apoi Dispozitive -> Scanează");
         setTimeout(() => openrgb("status"), 6000); } catch {}
 };
+bind("#offOnShutdown", t => cfg.lights_off_on_shutdown = t.checked);
 bind("#orgbAuto", t => cfg.openrgb = Object.assign({}, cfg.openrgb, {autostart: t.checked}));
 $("#autoStart").onchange = async e => {
   try { const r = await api("/api/autostart", {enabled: e.target.checked}); e.target.checked = r.enabled;

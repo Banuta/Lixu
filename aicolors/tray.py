@@ -28,6 +28,8 @@ WNDPROC = ctypes.WINFUNCTYPE(LRESULT, wintypes.HWND, wintypes.UINT, wintypes.WPA
 
 WM_DESTROY = 0x0002
 WM_CLOSE = 0x0010
+WM_QUERYENDSESSION = 0x0011
+WM_ENDSESSION = 0x0016
 WM_COMMAND = 0x0111
 WM_TIMER = 0x0113
 WM_NULL = 0x0000
@@ -124,12 +126,14 @@ class Tray:
     def __init__(self, icon_path: Path, tooltip: Callable[[], str],
                  menu: Callable[[], List[Optional[MenuItem]]], on_command: Callable[[int], None],
                  on_click: Callable[[], None], on_timer: Optional[Callable[["Tray"], None]] = None,
+                 on_shutdown: Optional[Callable[[], None]] = None,
                  timer_ms: int = 5000):
         self.tooltip = tooltip
         self.menu = menu
         self.on_command = on_command
         self.on_click = on_click
         self.on_timer = on_timer
+        self.on_shutdown = on_shutdown
         self.timer_ms = timer_ms
         self._proc = WNDPROC(self._wndproc)  # referință păstrată, altfel callback-ul dispare
         hinst = kernel32.GetModuleHandleW(None)
@@ -227,6 +231,12 @@ class Tray:
         if msg == self.taskbar_created:  # Explorer a repornit: iconița trebuie adăugată din nou
             self._add()
             return 0
+        if msg == WM_QUERYENDSESSION:  # Windows se oprește / repornește / deloghează
+            return 1
+        if msg == WM_ENDSESSION:
+            if wparam and self.on_shutdown:
+                self._safe(self.on_shutdown)
+            return 0
         if msg == WM_CLOSE:
             user32.DestroyWindow(hwnd)
             return 0
@@ -294,7 +304,12 @@ def run_tray(app, open_window: Callable[[str], None], icon_path: Path, quiet: bo
             for msg in battery_warnings(app.peripherals.snapshot(), warned):
                 t.notify("Baterie slabă", msg, warning=True)
 
-    tray = Tray(icon_path, tooltip, menu, on_command, lambda: open_window(app.ui_url), on_timer)
+    def on_shutdown() -> None:
+        if app.cfg.lights_off_on_shutdown:
+            app.engine.blackout()
+        app.stop()  # tastatura: efectul și culorile tale înapoi
+
+    tray = Tray(icon_path, tooltip, menu, on_command, lambda: open_window(app.ui_url), on_timer, on_shutdown)
     if not quiet:
         tray.notify("AI Colors", "Rulează lângă ceas. Click pe iconiță pentru setări.")
     tray.run()

@@ -274,6 +274,22 @@ class Engine:
             colors = [to_rgb(scale(c, k)) for c in colors]
         return colors
 
+    BLACKOUT_KINDS = ("openrgb", "wled", "govee", "logitech", "tuya", "signalrgb")
+
+    def blackout(self) -> None:
+        """La oprirea PC-ului: negru pe plăci, benzi, becuri, mouse/căști, ca să nu rămână
+        aprinse pe curentul de standby. Tastatura ZENKABEAT își pune înapoi efectul la close()."""
+        self.paused = True
+        for out in list(self.outputs):
+            with out.lock:
+                dev = out.device
+                if dev is None or dev.kind not in self.BLACKOUT_KINDS:
+                    continue
+                try:
+                    dev.send([(0, 0, 0)] * dev.led_count)
+                except Exception as exc:
+                    log.debug("blackout %s: %s", out.label, exc)
+
     def set_paused(self, paused: bool) -> None:
         """Pauză: închide dispozitivele (revin la efectele lor) până la reluare."""
         self.paused = paused

@@ -29,6 +29,7 @@ class Config:
     peripherals: Dict[str, Any] = field(default_factory=lambda: {"enabled": True, "poll_seconds": 60})
     ui_port: int = 3001
     openrgb: Dict[str, Any] = field(default_factory=lambda: {"autostart": False})
+    lights_off_on_shutdown: bool = True
     path: Optional[Path] = None
 
     @property
@@ -45,6 +46,7 @@ class Config:
             "peripherals": self.peripherals,
             "ui_port": self.ui_port,
             "openrgb": self.openrgb,
+            "lights_off_on_shutdown": self.lights_off_on_shutdown,
             "devices": self.devices,
         }
 
@@ -84,6 +86,7 @@ def from_dict(data: Dict[str, Any], path: Optional[Path] = None) -> Config:
         peripherals=dict(data.get("peripherals") or {"enabled": True, "poll_seconds": 60}),
         ui_port=int(data.get("ui_port", 3001)),
         openrgb=dict(data.get("openrgb") or {"autostart": False}),
+        lights_off_on_shutdown=bool(data.get("lights_off_on_shutdown", True)),
         path=path,
     )
 

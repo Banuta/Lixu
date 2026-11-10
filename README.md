@@ -121,6 +121,17 @@ Limitări reale:
 * Dacă reîmperechezi un bec în Smart Life, cheia se schimbă: apasă din nou „Ia cheile”.
 * Alternativă mai rapidă pentru unele becuri: firmware alternativ (OpenBeken / ESPHome).
 
+## Luminile rămân aprinse după ce opresc PC-ul
+
+Placa de bază ține curent de standby pe conectorii RGB/ARGB și pe USB, iar dispozitivele rămân pe
+ultima culoare primită.
+
+* **AI Colors:** Setări -> Pornire -> **„stinge luminile la oprirea PC-ului”** (pornit implicit).
+  La oprirea Windows trimite negru la plăci, benzi, becuri, mouse/căști și pune înapoi efectul tastaturii.
+* **BIOS (Gigabyte):** Settings -> Miscellaneous -> **LEDs in Sleep, Hibernation, and Soft Off States**
+  -> **Off**. Opțional **Platform Power -> ErP -> Enabled** (taie tot standby-ul pe USB; atunci nici
+  mouse-ul/căștile nu se mai încarcă din PC când e oprit).
+
 ## SignalRGB (pentru ce merge doar acolo, ex. memoriile Kingston)
 
 Dacă un dispozitiv merge doar cu un plugin SignalRGB (cum sunt unele memorii Kingston FURY),
