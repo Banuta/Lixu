@@ -484,3 +484,43 @@ class SignalRGBApiTest(unittest.TestCase):
         dev.send([(9, 9, 9), (1, 1, 1)])
         self.assertEqual(signalrgb.latest()["colors"], ["#090909", "#010101"])
         dev.close()
+
+    def test_event_text(self):
+        from aicolors.devices import signalrgb
+
+        self.assertEqual(signalrgb.event_text([(255, 82, 0)] * 32), "c|ff5200")
+        self.assertEqual(signalrgb.event_text([(255, 0, 0), (0, 0, 255)]), "c|ff0000|0000ff")
+
+    def test_pushes_events_to_signalrgb(self):
+        import threading
+        import urllib.parse
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        from aicolors.devices import signalrgb
+
+        got = []
+
+        class H(BaseHTTPRequestHandler):
+            def do_POST(self):
+                u = urllib.parse.urlsplit(self.path)
+                got.append((u.path, urllib.parse.parse_qs(u.query)))
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            dev = signalrgb.SignalRGBBridge(2, control=False, event_port=srv.server_address[1])
+            dev.send([(255, 140, 0), (0, 80, 255)])
+            self.assertEqual(got[-1][0], "/canvas/event")
+            self.assertEqual(got[-1][1]["sender"], ["AIColors"])
+            self.assertEqual(got[-1][1]["event"], ["c|ff8c00|0050ff"])
+            self.assertIn("trimite culorile", dev.status_text)
+            dev.close()
+            self.assertEqual(got[-1][1]["event"], ["c|000000"])
+        finally:
+            srv.shutdown()

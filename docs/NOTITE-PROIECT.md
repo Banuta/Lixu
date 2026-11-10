@@ -61,6 +61,10 @@ Interfață web (Edge `--app`) + iconiță lângă ceas (Deschide / Pauză / Por
 * Kingston FURY CTRL nu are API/SDK (verificat) -> memoriile merg doar prin SignalRGB la el.
 * API Pro local `http://127.0.0.1:16038/api/v1` (format din pachetul PyPI `signalrgb` 1.0.2): GET `/lighting`,
   GET `/lighting/effects`, POST `/lighting/effects/{id}/apply`, PATCH `/lighting/enabled`.
+* **SignalRGB blochează XHR din efecte** (efectul pulsa alb, deși `/api/signalrgb` avea culori). De aceea AI Colors
+  împinge culorile: `POST http://localhost:16034/canvas/event?sender=AIColors&event=c|rrggbb|...` (o singură culoare
+  dacă toate sunt la fel), primite în efect prin `onCanvasApiEvent`. XHR rămâne doar ca rezervă. Portul fix 3001
+  (controlul numeric „Port AI Colors” din SignalRGB arăta 024 și a fost scos).
 * Dispozitivul `signalrgb` („control”: true implicit) aplică singur „AI Colors CS2” și pune înapoi efectul anterior
   la ieșire; la oprirea PC-ului rămâne negru. Statusul apare la Dispozitive -> Stare.
 

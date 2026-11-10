@@ -1,11 +1,14 @@
 """Punte spre SignalRGB: pentru dispozitivele pe care doar SignalRGB le controlează
 (ex. memoriile Kingston FURY care merg doar cu pluginul SignalRGB).
 
-AI Colors calculează culorile ca pentru o bandă de LED-uri ("leds" puncte, efectul ales),
-iar efectul „AI Colors CS2” din SignalRGB (aicolors/signalrgb/AIColorsCS2.html) le citește
-de la http://127.0.0.1:<ui_port>/api/signalrgb și le întinde de la stânga la dreapta pe
-canvasul SignalRGB, deci pe toate dispozitivele din SignalRGB, după cum sunt așezate în Layout.
-Nu cere SignalRGB Pro.
+AI Colors calculează culorile ca pentru o bandă de LED-uri ("leds" puncte, efectul ales) și
+le trimite la SignalRGB prin calea oficială pentru aplicații:
+    POST http://localhost:16034/canvas/event?sender=AIColors&event=c|rrggbb|rrggbb|...
+Efectul „AI Colors CS2” (aicolors/signalrgb/AIColorsCS2.html) le primește în
+onCanvasApiEvent și le întinde de la stânga la dreapta pe canvasul SignalRGB, deci pe toate
+dispozitivele din SignalRGB, după cum sunt așezate în Layout. (SignalRGB nu lasă efectul să
+citească singur de la AI Colors – XHR blocat – de aceea împingem noi datele.)
+Trimiterea nu cere SignalRGB Pro; doar aplicarea automată a efectului cere Pro.
 
 Linie în aicolors.json:
     {"type": "signalrgb", "effect": "ambient", "leds": 32}
@@ -13,8 +16,10 @@ Linie în aicolors.json:
 
 from __future__ import annotations
 
+import http.client
 import os
 import shutil
+import urllib.parse
 import threading
 import time
 from pathlib import Path
@@ -25,8 +30,34 @@ from .base import Device
 
 EFFECT_FILE = Path(__file__).resolve().parent.parent / "signalrgb" / "AIColorsCS2.html"
 
+EVENT_PORT = 16034
+SENDER = "AIColors"
+
 _lock = threading.Lock()
 _latest: Dict = {"colors": [], "at": 0.0}
+
+
+def event_text(colors: Sequence[RGB]) -> str:
+    """c|rrggbb|... ; dacă toate culorile sunt la fel, una singură (mesaj scurt)."""
+    hexes = ["%02x%02x%02x" % tuple(max(0, min(255, int(v))) for v in c) for c in colors]
+    if hexes and all(h == hexes[0] for h in hexes):
+        hexes = hexes[:1]
+    return "c|" + "|".join(hexes)
+
+
+def post_event(event: str, host: str = "127.0.0.1", port: int = EVENT_PORT,
+               timeout: float = 0.5) -> int:
+    """Trimite un eveniment către efectul SignalRGB activ; întoarce codul HTTP."""
+    query = urllib.parse.urlencode({"sender": SENDER, "event": event})
+    conn = http.client.HTTPConnection(host, port, timeout=timeout)
+    try:
+        conn.request("POST", "/canvas/event?" + query, body=b"",
+                     headers={"Content-Length": "0"})
+        resp = conn.getresponse()
+        resp.read()
+        return resp.status
+    finally:
+        conn.close()
 
 
 def latest() -> Dict:
@@ -47,10 +78,13 @@ class SignalRGBBridge(Device):
     keepalive = 0.5
 
     def __init__(self, leds: int = 32, name: Optional[str] = None, control: bool = True,
-                 api_port: int = 16038, api=None):
+                 api_port: int = 16038, api=None, event_port: int = EVENT_PORT):
         super().__init__(name or "SignalRGB (efectul AI Colors CS2)", max(1, min(256, int(leds))))
         self.previous_effect: Optional[str] = None
         self.shutdown = False   # la oprirea PC-ului nu mai punem efectul vechi (rămâne negru)
+        self.event_port = event_port
+        self.event_status = "încă nimic trimis"
+        self._event_fail = 0
         self.api = None
         self.api_status = "fără control (alege tu efectul în SignalRGB)"
         try:
@@ -81,11 +115,38 @@ class SignalRGBBridge(Device):
         with _lock:
             _latest["colors"] = [tuple(c) for c in colors]
             _latest["at"] = time.time()
+        self._push(event_text(colors))
+
+    def _push(self, event: str) -> None:
+        # După erori la rând (SignalRGB închis) încercăm mai rar, ca să nu încetinim nimic.
+        if self._event_fail >= 3 and self._event_fail % 10:
+            self._event_fail += 1
+            return
+        try:
+            code = post_event(event, port=self.event_port)
+        except OSError as exc:
+            self._event_fail += 1
+            self.event_status = f"SignalRGB nu primește evenimente pe portul {self.event_port}: {exc}"
+            return
+        if 200 <= code < 300:
+            self._event_fail = 0
+            self.event_status = "trimite culorile la SignalRGB"
+        else:
+            self._event_fail += 1
+            self.event_status = f"SignalRGB a răspuns {code} la evenimente"
+
+    @property
+    def status_text(self) -> str:
+        return f"{self.api_status}; {self.event_status}"
 
     def close(self) -> None:
         with _lock:
             _latest["colors"] = []
             _latest["at"] = 0.0
+        try:
+            post_event("c|000000", port=self.event_port, timeout=0.3)   # negru la închidere
+        except OSError:
+            pass
         if self.api is not None and self.previous_effect and not self.shutdown:
             try:
                 self.api.apply(self.previous_effect)  # efectul tău din SignalRGB înapoi
@@ -95,7 +156,8 @@ class SignalRGBBridge(Device):
 
 def from_config(entry: dict) -> Device:
     return SignalRGBBridge(entry.get("leds", 32), entry.get("name"), bool(entry.get("control", True)),
-                           int(entry.get("api_port", 16038)))
+                           int(entry.get("api_port", 16038)),
+                           event_port=int(entry.get("event_port", EVENT_PORT)))
 
 
 def effects_dirs() -> List[Path]:

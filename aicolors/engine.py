@@ -399,6 +399,6 @@ class Engine:
                 "scene": last[0] if last and isinstance(last[0], str) else None,
                 "mode": getattr(dev, "current", None),
                 "original_mode": getattr(dev, "original", None),
-                "status": getattr(dev, "api_status", None),
+                "status": getattr(dev, "status_text", None) or getattr(dev, "api_status", None),
             })
         return result

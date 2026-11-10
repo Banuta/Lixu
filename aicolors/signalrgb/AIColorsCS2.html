@@ -11,7 +11,10 @@
   // Efect SignalRGB: citește culorile calculate de AI Colors și le întinde pe canvas,
   // de la stânga la dreapta (sau de sus în jos). Dispozitivele primesc culoarea locului
   // în care sunt așezate în Layout-ul SignalRGB.
-  // Portul e fix (3001, ca în AI Colors): controlul numeric din SignalRGB strica valoarea.
+  // Culorile vin de la AI Colors prin evenimentele SignalRGB:
+  //   POST http://localhost:16034/canvas/event?sender=AIColors&event=c|rrggbb|rrggbb|...
+  // (SignalRGB le dă efectului prin onCanvasApiEvent). Ca rezervă, efectul încearcă și să
+  // citească singur de la http://127.0.0.1:3001/api/signalrgb (SignalRGB poate bloca asta).
   // Fără legătură cu AI Colors: pulsează slab alb, ca să se vadă că efectul rulează.
   var c = document.getElementById("exCanvas");
   var ctx = c.getContext("2d");
@@ -21,13 +24,27 @@
   var lastOk = 0;
   var busy = false;
 
+  // apelată de SignalRGB pentru fiecare POST la /canvas/event
+  function onCanvasApiEvent(apiEvent) {
+    if (!apiEvent || apiEvent["sender"] !== "AIColors") return;
+    var ev = apiEvent["event"];
+    if (typeof ev !== "string" || ev.indexOf("c|") !== 0) return;
+    var parts = ev.split("|"), out = [];
+    for (var i = 1; i < parts.length; i++) {
+      if (/^[0-9a-fA-F]{6}$/.test(parts[i])) out.push("#" + parts[i]);
+    }
+    if (out.length) { colors = out; lastOk = Date.now(); lastEvent = lastOk; }
+  }
+  window.onCanvasApiEvent = onCanvasApiEvent;
+  var lastEvent = 0;
+
   function failed() {
     busy = false;
     urlIndex = (urlIndex + 1) % URLS.length;   // încercăm și cealaltă adresă
   }
 
   function poll() {
-    if (busy) return;
+    if (busy || Date.now() - lastEvent < 2000) return;   // evenimentele merg: nu mai citim
     busy = true;
     var xhr;
     try {
