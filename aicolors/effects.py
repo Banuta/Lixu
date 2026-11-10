@@ -25,8 +25,10 @@ from . import layout
 from .gsi import GameState
 from .protocol import LED_COUNT, RGB
 
-T_COLOR: RGB = (255, 0, 0)
-CT_COLOR: RGB = (0, 110, 255)
+# Culorile echipelor din CS2 (HUD/scoreboard: T #DE9B35, CT #5D79AE), mai saturate ca să arate bine
+# pe LED-uri. Roșul rămâne rezervat pentru damage, bombă și viață mică.
+T_COLOR: RGB = (255, 140, 0)
+CT_COLOR: RGB = (0, 80, 255)
 IDLE_COLOR: RGB = (120, 40, 255)
 ARMOR_COLOR: RGB = (40, 160, 255)
 HELMET_COLOR: RGB = (150, 220, 255)

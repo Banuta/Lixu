@@ -71,14 +71,15 @@ def find_config(explicit: Optional[str] = None) -> Optional[Path]:
     return None
 
 
-OLD_DEFAULT_COLORS = {"t": "#ff6e00"}  # portocaliul vechi pentru T; acum T e roșu
+# culori implicite vechi: dacă au rămas salvate, se trece pe noile culori implicite (cele din CS2)
+OLD_DEFAULT_COLORS = {"t": "#ff6e00", "ct": "#006eff"}
 
 
 def from_dict(data: Dict[str, Any], path: Optional[Path] = None) -> Config:
     gsi = data.get("gsi", {})
     colors = dict(data.get("colors") or {})
     for key, old in OLD_DEFAULT_COLORS.items():
-        if colors.get(key, "").lower() == old:
+        if str(colors.get(key, "")).lower() == old:
             colors.pop(key)
     devices = [dict(d) for d in data.get("devices", DEFAULT_DEVICES)]
     for d in devices:

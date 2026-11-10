@@ -294,7 +294,7 @@ class EngineTest(unittest.TestCase):
         eng.tick(115.0)   # keepalive
         self.assertTrue(all(d.frames_sent == 2 for d in devs))
         self.assertEqual(devs[1].last_frame[4], effects.to_rgb(effects.health_color(50)))
-        self.assertEqual(devs[4].last_frame[0], (0, 55, 128))  # CT (0,110,255) * 0.5
+        self.assertEqual(devs[4].last_frame[0], effects.to_rgb(effects.scale(effects.CT_COLOR, 0.5)))
 
     def test_broken_device_does_not_stop_others(self):
         store = StateStore()
@@ -692,10 +692,12 @@ class NewEventsTest(unittest.TestCase):
         self.assertEqual(out[4], effects.to_rgb(effects.BOMB_COLOR))
         self.assertEqual(out[5], (20, 0, 0))
 
-    def test_t_color_red_and_old_default_migrated(self):
-        self.assertEqual(effects.T_COLOR[0], 255)
-        cfg = configmod.from_dict({"colors": {"t": "#FF6E00", "ct": "#0000ff"}})
-        self.assertEqual(cfg.colors, {"ct": "#0000ff"})
+    def test_cs2_team_colors_and_old_defaults_migrated(self):
+        self.assertEqual(effects.rgb_to_hex(effects.T_COLOR), "#ff8c00")   # portocaliu, nu roșu
+        self.assertEqual(effects.rgb_to_hex(effects.CT_COLOR), "#0050ff")
+        self.assertNotEqual(effects.T_COLOR, effects.BOMB_COLOR)
+        cfg = configmod.from_dict({"colors": {"t": "#FF6E00", "ct": "#006eff", "bomb": "#ff0000"}})
+        self.assertEqual(cfg.colors, {"bomb": "#ff0000"})
 
 
 class KbFastPathTest(unittest.TestCase):

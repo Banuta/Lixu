@@ -46,8 +46,10 @@ Limba de lucru: **română**. Codul e pe branch-ul `ccr-0ddab67e-06mfdx` din `Ba
 Interfață web (Edge `--app`) + iconiță lângă ceas (Deschide / Pauză / Pornește cu Windows / Ieșire, notificări baterie), motor cu fir propriu per dispozitiv (nu se mai blochează), efecte (keyboard/ambient/team/health/armor/ammo + evenimente), dispozitive: zenkabeat (efecte + culori automate), wled, govee (segmente/grupuri/hosts), logitech (HID++ sau G HUB), openrgb (zone, RAM toate plăcuțele), tuya (chei din cont în UI), signalrgb (punte + efect „AI Colors CS2”), OpenRGB descărcat/pornit din UI, stinge luminile la oprirea Windows, `/api/game` (stare brută CS2, CORS).
 
 ## Efecte (cererea utilizatorului)
-* T = roșu (`#ff0000`, vechiul `#ff6e00` salvat se migrează), CT = albastru.
-* Final de rundă: T câștigă = **clipește roșu**, CT câștigă = **flash albastru** (config `events.win_t/win_ct`: blink/flash/pulse).
+* Culorile echipelor ca în CS2 (HUD: T `#DE9B35`, CT `#5D79AE`), saturate pentru LED: **T `#FF8C00` portocaliu,
+  CT `#0050FF` albastru**. Utilizatorul a cerut explicit: roșul NU pentru T, ca să nu se confunde cu damage/bombă.
+  Vechile valori implicite salvate (`#ff6e00`, `#006eff`) se migrează la cele noi.
+* Final de rundă: T câștigă = **clipește** (portocaliu), CT câștigă = **flash albastru** (config `events.win_t/win_ct`: blink/flash/pulse).
 * Flash de damage (roșu, după cât ai pierdut), flash la kill (auriu / mov HS), efect de bandă `bomb` (timp rămas).
 * Tastatura: situațiile `win_ct`/`win_t` au culoarea echipei; pauza dintre scrieri 1 s (era 3 s); scrierile
   se verifică doar la început și din 15 în 15 (calea rapidă, ~0,2 s în loc de ~1,5 s per schimbare).
