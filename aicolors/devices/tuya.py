@@ -16,6 +16,7 @@ culoarea „ambient” și maxim ~4 schimbări/s.
 from __future__ import annotations
 
 import json
+import re
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
@@ -31,20 +32,58 @@ def _devices_json_paths() -> List[Path]:
     return [user_config_path().parent / "devices.json", Path.cwd() / "devices.json", Path.home() / "devices.json"]
 
 
-REGIONS = {"eu": "Europa", "us": "America", "cn": "China", "in": "India"}
+# Data center-ul proiectului din iot.tuya.com -> codul pentru tinytuya.
+# Atenție: un cod necunoscut trimite tinytuya pe serverele din China.
+REGIONS = {"eu": "Central Europe", "eu-w": "Western Europe", "us": "Western America",
+           "us-e": "Eastern America", "in": "India", "sg": "Singapore", "cn": "China"}
+
+# Coduri de eroare Tuya OpenAPI -> ce ai de făcut
+TUYA_HINTS = {
+    "1004": "Access Secret greșit (verifică să nu fie spații) sau ceasul PC-ului nu e sincronizat "
+            "(Setări Windows -> Oră -> Sincronizează acum).",
+    "1010": "Token invalid: încearcă din nou peste câteva secunde.",
+    "1106": "Acces refuzat: contul Smart Life nu e legat la proiect (Devices -> Link App Account -> scanezi "
+            "QR-ul) sau regiunea aleasă nu e data center-ul proiectului.",
+    "28841002": "Perioada gratuită IoT Core a expirat: Cloud -> Project Management -> IoT Core -> Extend trial period.",
+    "28841101": "Proiectul nu e abonat la IoT Core: tab-ul Service API -> Go to Authorize -> IoT Core -> Subscribe.",
+    "28841105": "Proiectul nu are voie să folosească API-ul: tab-ul Service API -> Go to Authorize -> bifează "
+                "IoT Core și Authorization Token Management.",
+}
+
+
+def explain_tuya_error(err) -> str:
+    text = str(err)
+    for code, hint in TUYA_HINTS.items():
+        if re.search(rf"\b{code}\b", text):
+            return f"{hint} (cod Tuya {code})"
+    if "uid" in text.lower() or "device list" in text.lower():
+        return ("Tuya nu găsește dispozitive în proiect: leagă contul Smart Life (Devices -> Link App Account) "
+                "și verifică regiunea (data center-ul proiectului).")
+    return f"Tuya a răspuns: {text}"
 
 
 def fetch_cloud_keys(region: str, api_key: str, api_secret: str, device_ids: Optional[List[str]] = None) -> Path:
     """Ia cheile locale din contul Tuya IoT (ca `tinytuya wizard`) și scrie devices.json
     în folderul aplicației. Cheia/secretul API NU se salvează."""
+    region = (region or "eu").strip().lower()
+    if region not in REGIONS:
+        raise DeviceError(f"regiune necunoscută: {region} (alege din {', '.join(REGIONS)})")
+    api_key, api_secret = (api_key or "").strip(), (api_secret or "").strip()
+    if not api_key or not api_secret:
+        raise DeviceError("completează Access ID și Access Secret din tab-ul Overview al proiectului")
     tinytuya = _tinytuya()
-    cloud = tinytuya.Cloud(apiRegion=region, apiKey=api_key, apiSecret=api_secret,
-                           apiDeviceID=",".join(device_ids or []) or None)
+    try:
+        cloud = tinytuya.Cloud(apiRegion=region, apiKey=api_key, apiSecret=api_secret,
+                               apiDeviceID=",".join(device_ids or []) or None)
+    except Exception as exc:  # tinytuya aruncă la cheie/secret lipsă sau rețea
+        raise DeviceError(explain_tuya_error(exc)) from exc
     if getattr(cloud, "error", None):
-        raise DeviceError(f"Tuya Cloud: {cloud.error}")
+        raise DeviceError(explain_tuya_error(cloud.error))
     devices = cloud.getdevices(verbose=False)
     if isinstance(devices, dict):  # tinytuya întoarce un dict cu eroarea
-        raise DeviceError(f"Tuya Cloud: {devices.get('Payload') or devices.get('Error') or devices}")
+        raise DeviceError(explain_tuya_error(devices))
+    if not devices:
+        raise DeviceError(explain_tuya_error("Unable to get uid for device list"))
     keep = [{k: d.get(k) for k in ("id", "name", "key", "ip", "version", "product_name", "mac")}
             for d in devices if isinstance(d, dict) and d.get("id")]
     path = _devices_json_paths()[0]

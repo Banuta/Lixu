@@ -401,3 +401,18 @@ class SignalRGBBridgeTest(unittest.TestCase):
                     os.environ.pop("USERPROFILE", None)
                 else:
                     os.environ["USERPROFILE"] = old
+
+
+class TuyaErrorHintsTest(unittest.TestCase):
+    def test_known_codes_and_region_check(self):
+        from aicolors.devices import tuya
+        from aicolors.devices.base import DeviceError
+
+        self.assertIn("Link App Account", tuya.explain_tuya_error({"Payload": {"code": 1106, "msg": "permission deny"}}))
+        self.assertIn("Extend trial", tuya.explain_tuya_error("code 28841002 No permissions"))
+        self.assertIn("ceasul", tuya.explain_tuya_error('{"code":1004,"msg":"sign invalid"}'))
+        self.assertIn("Tuya a răspuns", tuya.explain_tuya_error("ceva nou"))
+        with self.assertRaises(DeviceError):
+            tuya.fetch_cloud_keys("europa", "id", "secret")
+        with self.assertRaises(DeviceError):
+            tuya.fetch_cloud_keys("eu", " ", "secret")

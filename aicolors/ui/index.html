@@ -240,9 +240,12 @@
         <h2>Tuya / Smart Life <span class="sub">cheile becurilor</span></h2>
         <p class="muted" style="font-size:12px;margin-top:0">O singură dată: cont gratuit pe iot.tuya.com → Cloud → Create
           Cloud Project (Smart Home, data center Central Europe) → Devices → Link App Account (scanezi QR-ul cu Smart Life).
-          Din Overview copiezi Access ID și Access Secret aici. Cheia și secretul nu se salvează.</p>
-        <div class="row"><label>Regiune</label><select id="tuyaRegion"><option value="eu">Europa</option>
-          <option value="us">America</option><option value="cn">China</option><option value="in">India</option></select></div>
+          Din Overview copiezi Access ID și Access Secret aici. Cheia și secretul nu se salvează.
+          <b>Regiunea</b> trebuie să fie exact data center-ul proiectului (scrie în Overview).</p>
+        <div class="row"><label>Regiune</label><select id="tuyaRegion">
+          <option value="eu">Central Europe (eu)</option><option value="eu-w">Western Europe (eu-w)</option>
+          <option value="us">Western America (us)</option><option value="us-e">Eastern America (us-e)</option>
+          <option value="in">India (in)</option><option value="sg">Singapore (sg)</option><option value="cn">China (cn)</option></select></div>
         <div class="row"><label>Access ID</label><input id="tuyaKey" style="flex:1"></div>
         <div class="row"><label>Access Secret</label><input id="tuyaSecret" type="password" style="flex:1"></div>
         <div class="row"><button class="btn primary" id="tuyaFetch">Ia cheile din contul Tuya</button></div>
