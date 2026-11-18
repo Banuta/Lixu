@@ -83,6 +83,7 @@ class Engine:
                  idle_fps: float = 10.0, brightness: float = 1.0, dry_run: bool = False,
                  preview: bool = False, retry_after: float = 5.0, workers: bool = False):
         self.lock = threading.RLock()
+        self.on_entry_update = None   # App: salvează în config schimbările găsite la conectare
         self.outputs = [Output(dict(e)) for e in entries]
         self.store = store
         self.fps = max(1.0, fps)
@@ -120,6 +121,14 @@ class Engine:
             out.device = dev
             out.errors, out.error = 0, ""
             out.submitted = None
+        found = getattr(dev, "found_host", None)
+        if found and out.entry.get("host") != found:   # ex. bec Tuya cu IP nou după o pană de curent
+            out.entry["host"] = found
+            if self.on_entry_update:
+                try:
+                    self.on_entry_update(out.entry)
+                except Exception as exc:
+                    log.warning("nu am putut salva adresa nouă: %s", exc)
         log.info("Conectat: %s (%d LED-uri, efect %s)", dev.name, dev.led_count, out.effect)
         self.store.changed.set()
 

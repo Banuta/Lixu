@@ -217,6 +217,21 @@ class TuyaTest(unittest.TestCase):
         self.assertIn("protocol 3.1", dev.api_status)
         self.assertEqual([b.args[3]["version"] for b in FakeBulb.instances], [3.3, 3.1])
 
+    def test_finds_bulb_at_new_ip(self):
+        from aicolors.devices import tuya
+
+        orig = FakeBulb.status
+        FakeBulb.status = lambda self: ({"dps": {"20": True}} if self.args[1] == "192.168.68.90"
+                                        else {"Error": "Network Error: Device Unreachable", "Err": "901"})
+        old_hosts, tuya.open_tuya_hosts = tuya.open_tuya_hosts, lambda base: ["192.168.68.20", "192.168.68.90"]
+        tuya._last_hunt.clear()
+        try:
+            dev = tuya.TuyaBulb("bf01", "192.168.68.71", "cheie", version=3.3, devices_json="/nu/exista.json")
+        finally:
+            FakeBulb.status, tuya.open_tuya_hosts = orig, old_hosts
+        self.assertEqual(dev.found_host, "192.168.68.90")
+        self.assertIn("IP nou", dev.api_status)
+
     def test_missing_key(self):
         from aicolors.devices import tuya
         from aicolors.devices.base import DeviceError

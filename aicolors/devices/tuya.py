@@ -132,6 +132,88 @@ def wizard_devices(path: Optional[str] = None) -> Dict[str, Dict]:
 VERSIONS = (3.3, 3.1, 3.4, 3.5)
 
 
+def _try_versions(tinytuya, dev_id: str, host: str, key: str, versions, timeout: float = 2):
+    """(bec, versiune, erori) – primul protocol la care becul răspunde, sau (None, None, erori)."""
+    errors = []
+    for v in versions:
+        bulb = tinytuya.BulbDevice(dev_id, host, key, version=v, persist=True, connection_timeout=timeout)
+        bulb.set_socketTimeout(1)
+        status = bulb.status()  # detectează și tipul becului (formatul culorii)
+        if isinstance(status, dict) and "Error" not in status:
+            return bulb, v, errors
+        err = status.get("Error") if isinstance(status, dict) else status
+        errors.append(f"{v}: {err}")
+        try:
+            bulb.close()
+        except Exception:
+            pass
+    return None, None, errors
+
+
+def _unreachable(err: str) -> bool:
+    e = str(err).lower()
+    return "unreachable" in e or "network error" in e or "901" in e or "timeout" in e
+
+
+def _local_ip() -> Optional[str]:
+    """IP-ul PC-ului în rețeaua locală (UDP „connect” nu trimite nimic)."""
+    import socket
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("192.0.2.1", 9))
+        return s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+TUYA_PORT = 6668
+HUNT_EVERY = 60.0
+_last_hunt: Dict[str, float] = {}
+
+
+def open_tuya_hosts(subnet_of: str, timeout: float = 0.4) -> List[str]:
+    """Adresele din /24 care au portul Tuya (6668) deschis."""
+    import ipaddress
+    import socket
+    from concurrent.futures import ThreadPoolExecutor
+
+    net = ipaddress.ip_network(subnet_of.rsplit(".", 1)[0] + ".0/24", strict=False)
+
+    def probe(ip) -> Optional[str]:
+        try:
+            with socket.create_connection((str(ip), TUYA_PORT), timeout=timeout):
+                return str(ip)
+        except OSError:
+            return None
+
+    with ThreadPoolExecutor(64) as ex:
+        return [h for h in ex.map(probe, net.hosts()) if h]
+
+
+def hunt(tinytuya, dev_id: str, key: str, versions, near: Optional[str] = None):
+    """Caută becul în rețea: (bec, versiune, ip) sau None. Cel mult o dată pe minut per bec."""
+    import time
+
+    now = time.time()
+    if now - _last_hunt.get(dev_id, 0.0) < HUNT_EVERY:
+        return None
+    _last_hunt[dev_id] = now
+    base = near or _local_ip()
+    if not base:
+        return None
+    hosts = [h for h in open_tuya_hosts(base) if h != near]
+    log.info("Tuya %s: caut becul în rețea, %d dispozitive cu portul %d", dev_id, len(hosts), TUYA_PORT)
+    for h in hosts:
+        bulb, v, _ = _try_versions(tinytuya, dev_id, h, key, versions, timeout=1)
+        if bulb is not None:
+            log.info("Tuya %s: găsit pe %s (protocol %s)", dev_id, h, v)
+            return bulb, v, h
+    return None
+
+
 class TuyaBulb(Device):
     kind = "tuya"
     min_interval = 0.25
@@ -151,25 +233,22 @@ class TuyaBulb(Device):
         # versiunea de protocol: cea dată, cea din devices.json, altfel le încercăm pe rând
         given = version or known.get("version")
         versions = [float(given)] if given else list(VERSIONS)
-        errors = []
-        for v in versions:
-            bulb = tinytuya.BulbDevice(dev_id, host, local_key, version=v, persist=True, connection_timeout=2)
-            bulb.set_socketTimeout(1)
-            status = bulb.status()  # detectează și tipul becului (formatul culorii)
-            if isinstance(status, dict) and "Error" not in status:
-                self.bulb = bulb
-                self.version = v
-                break
-            err = status.get("Error") if isinstance(status, dict) else status
-            errors.append(f"{v}: {err}")
-            try:
-                bulb.close()
-            except Exception:
-                pass
-        else:
+        self.found_host: Optional[str] = None   # IP nou găsit (după o pană de curent / DHCP)
+        bulb, v, errors = _try_versions(tinytuya, dev_id, host, local_key, versions)
+        if bulb is None and all(_unreachable(e) for e in errors):
+            # nu mai e la adresa știută: îl căutăm în rețea după portul Tuya și cheia lui
+            hit = hunt(tinytuya, dev_id, local_key, versions, near=None if host == "Auto" else host)
+            if hit:
+                bulb, v, host = hit
+                self.found_host = host
+        if bulb is None:
             hint = " (pune IP-ul becului la Dispozitive)" if host == "Auto" else ""
-            raise DeviceError(f"Tuya {dev_id} ({host}){hint} nu răspunde: " + "; ".join(errors))
-        self.api_status = f"conectat pe {host}, protocol {self.version}"
+            raise DeviceError(f"Tuya {dev_id} ({host}){hint} nu răspunde: " + "; ".join(errors) +
+                              ("; nici căutarea în rețea nu l-a găsit (e alimentat? e în aceeași rețea?)"
+                               if all(_unreachable(e) for e in errors) else ""))
+        self.bulb, self.version, self.host = bulb, v, host
+        self.api_status = (f"găsit pe IP nou {host} (salvat), protocol {v}" if self.found_host
+                           else f"conectat pe {host}, protocol {v}")
         self.bulb.turn_on(nowait=True)
 
     def send(self, colors: Sequence[RGB]) -> None:

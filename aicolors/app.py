@@ -101,6 +101,7 @@ class App:
         self.store = StateStore()
         self.engine = Engine(cfg.active_devices, self.store, fps=cfg.fps, idle_fps=cfg.idle_fps,
                              brightness=cfg.brightness, dry_run=dry_run, preview=preview, workers=True)
+        self.engine.on_entry_update = self._entry_updated
         self.gsi = GsiServer(self.store, host=cfg.host, port=cfg.port, token=cfg.token)
         self.peripherals = None
         if cfg.peripherals.get("enabled", True) and not dry_run:
@@ -218,6 +219,16 @@ class App:
             "signalrgb_zones": __import__("aicolors.devices.signalrgb", fromlist=["x"]).DEFAULT_ZONES,
             "dry_run": self.dry_run,
         }
+
+    def _entry_updated(self, entry: Dict[str, Any]) -> None:
+        """Un dispozitiv a fost găsit la altă adresă: o scriem în config (fără reconectare)."""
+        for d in self.cfg.devices:
+            if d.get("type") == entry.get("type") and d.get("id") and d.get("id") == entry.get("id"):
+                d["host"] = entry["host"]
+                if self.cfg.path:
+                    configmod.save(self.cfg, self.cfg.path)
+                log.info("Adresă nouă salvată pentru %s: %s", entry.get("id"), entry["host"])
+                return
 
     def save_config(self, data: Dict[str, Any]) -> Dict[str, Any]:
         data = {k: v for k, v in data.items() if k != "path"}
