@@ -210,7 +210,7 @@ class TuyaTest(unittest.TestCase):
         FakeBulb.status = lambda self: ({"dps": {"20": True}} if self.args[3]["version"] == 3.1
                                         else {"Error": "Check device key or version", "Err": "914"})
         try:
-            dev = tuya.TuyaBulb("bf01", "192.168.68.71", "cheie", devices_json="/nu/exista.json")
+            dev = tuya.TuyaBulb("bf01", "192.168.68.71", "0123456789abcdef", devices_json="/nu/exista.json")
         finally:
             FakeBulb.status = orig
         self.assertEqual(dev.version, 3.1)
@@ -226,7 +226,7 @@ class TuyaTest(unittest.TestCase):
         old_hosts, tuya.open_tuya_hosts = tuya.open_tuya_hosts, lambda base: ["192.168.68.20", "192.168.68.90"]
         tuya._last_hunt.clear()
         try:
-            dev = tuya.TuyaBulb("bf01", "192.168.68.71", "cheie", version=3.3, devices_json="/nu/exista.json")
+            dev = tuya.TuyaBulb("bf01", "192.168.68.71", "0123456789abcdef", version=3.3, devices_json="/nu/exista.json")
         finally:
             FakeBulb.status, tuya.open_tuya_hosts = orig, old_hosts
         self.assertEqual(dev.found_host, "192.168.68.90")
@@ -236,7 +236,7 @@ class TuyaTest(unittest.TestCase):
         from aicolors.devices import tuya
         from aicolors.devices.base import DeviceError
 
-        dev = tuya.TuyaBulb("bf01", "192.168.68.71", "cheie", version=3.3, devices_json="/nu/exista.json")
+        dev = tuya.TuyaBulb("bf01", "192.168.68.71", "0123456789abcdef", version=3.3, devices_json="/nu/exista.json")
         dev.send([(255, 0, 0)])                      # merge
         dev.bulb.set_colour = lambda *a, **k: {"Error": "Network Error: Device Unreachable", "Err": "905"}
         with self.assertRaises(DeviceError):
@@ -246,6 +246,22 @@ class TuyaTest(unittest.TestCase):
         dev._verified_at = 0                          # e timpul verificării periodice
         with self.assertRaises(DeviceError):
             dev.send([(0, 255, 0)])
+
+    def test_wrong_key_length_and_snapshot(self):
+        from aicolors.devices import tuya
+        from aicolors.devices.base import DeviceError
+
+        secret = "a" * 32                                   # Access Secret pus din greșeală
+        with self.assertRaises(DeviceError) as ctx:
+            tuya.TuyaBulb("bf01", "192.168.68.61", secret, devices_json="/nu/exista.json")
+        self.assertIn("Access Secret", str(ctx.exception))
+        with tempfile.TemporaryDirectory() as tmp:
+            snap = Path(tmp) / "snapshot.json"
+            snap.write_text(json.dumps({"timestamp": 1, "devices": [
+                {"id": "bf01", "key": "0123456789abcdef", "ip": "192.168.68.61", "ver": "3.3", "name": "Bec"}]}))
+            dev = tuya.TuyaBulb("bf01", "192.168.68.61", secret, devices_json=str(snap))
+        self.assertEqual(FakeBulb.instances[-1].args[2], "0123456789abcdef")   # cheia bună din snapshot
+        self.assertIn("Access Secret", dev.api_status)
 
     def test_missing_key(self):
         from aicolors.devices import tuya

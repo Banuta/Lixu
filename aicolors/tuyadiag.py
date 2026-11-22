@@ -82,6 +82,9 @@ def run(out_path: str = "tuya-diagnostic.txt") -> Path:
             data = tuya.wizard_devices(str(p))
             say(f"{p}: {len(data)} dispozitive")
             for did, d in data.items():
+                if d.get("key") and not tuya.key_ok(d["key"]):
+                    say(f"   {did}: cheia {tuya.key_problem(d['key'])}")
+            for did, d in data.items():
                 key = d.get("key") or ""
                 say(f"   {d.get('name', '?')}: id {did}, cheie {len(key)} caractere (amprentă {_fingerprint(key)}), "
                     f"ip „{d.get('ip') or ''}”, versiune {d.get('version') or '?'}")
@@ -112,6 +115,11 @@ def run(out_path: str = "tuya-diagnostic.txt") -> Path:
         say(f"== bec {entry.get('name') or did} (id {did}) ==")
         say(f"cheie: {'din config' if entry.get('local_key') else 'din devices.json' if wiz.get('key') else 'LIPSEȘTE'}, "
             f"{len(key)} caractere, amprentă {_fingerprint(key)}")
+        if key and not tuya.key_ok(key):
+            say(f"   GREȘIT: cheia {tuya.key_problem(key)}")
+            if tuya.key_ok(wiz.get("key")):
+                key = wiz["key"].strip()
+                say(f"   testez cu cheia din {wiz.get('_file')} (16 caractere, amprentă {_fingerprint(key)})")
         if entry.get("local_key") and wiz.get("key") and entry["local_key"].strip() != wiz["key"]:
             say("   ATENȚIE: cheia din config diferă de cea din devices.json (becul a fost re-împerecheat?)")
         if did and known and did not in known:

@@ -468,7 +468,8 @@ function tuyaOptions(d, i) {
     Protocol <select data-t="version">${vs.map(v => `<option value="${v}" ${String(d.version || "") === v ? "selected" : ""}>${v || "automat"}</option>`).join("")}</select>
     <button class="btn small" data-tfile>Încarcă devices.json…</button>
     <input type="file" accept=".json,application/json" data-tpick hidden>
-    <span data-tmsg></span></td></tr>`;
+    <span data-tmsg>${d.local_key && d.local_key.trim().length !== 16 ? `<b style="color:var(--bad)">✖ cheia are ${d.local_key.trim().length} caractere${
+      d.local_key.trim().length === 32 ? " (e Access Secret-ul, nu cheia becului)" : d.local_key.trim().length === 20 ? " (e Access ID-ul, nu cheia becului)" : ""}; cheia becului are 16 – „key” din devices.json</b>` : ""}</span></td></tr>`;
 }
 $("#devTable").addEventListener("change", e => {
   const t = e.target, tr = t.closest("tr.tuya"); if (!tr) return;
@@ -482,13 +483,14 @@ $("#devTable").addEventListener("change", e => {
   const msg = tr.querySelector("[data-tmsg]");
   t.files[0].text().then(text => {
     let list; try { list = JSON.parse(text); } catch { msg.textContent = "✖ fișierul nu e JSON"; return; }
-    if (!Array.isArray(list)) { msg.textContent = "✖ nu e un devices.json de la tinytuya"; return; }
+    if (!Array.isArray(list) && !(list && Array.isArray(list.devices))) { msg.textContent = "✖ nu e un devices.json de la tinytuya"; return; }
+    if (!Array.isArray(list) && list && Array.isArray(list.devices)) list = list.devices;   // snapshot.json
     const withKey = list.filter(x => x && x.id && x.key);
     const hit = withKey.find(x => x.id === d.id) || (withKey.length === 1 && !d.id ? withKey[0] : null);
     if (!hit) { msg.textContent = `✖ id-ul ${d.id || "(gol)"} nu e în fișier (găsite: ${list.map(x => x.name || x.id).join(", ") || "nimic"})`; return; }
     d.id = hit.id; d.local_key = hit.key;
     if (hit.ip && !d.host) d.host = hit.ip;
-    if (hit.version && !d.version) d.version = String(hit.version);
+    if ((hit.version || hit.ver) && !d.version) d.version = String(hit.version || hit.ver);
     if (!d.name && hit.name) d.name = hit.name;
     markDirty(); renderDevices();
     document.querySelector("[data-save]").click();   // salvăm direct, ca să nu se piardă

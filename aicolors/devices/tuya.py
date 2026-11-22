@@ -39,10 +39,11 @@ def _devices_json_paths() -> List[Path]:
             home / "OneDrive" / "Desktop", home / "OneDrive" / "Documents", home / "OneDrive" / "Documente",
             Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"]
     out: List[Path] = []
-    for d in dirs:
-        p = d / "devices.json"
-        if p not in out:
-            out.append(p)
+    for name in ("devices.json", "snapshot.json"):   # snapshot.json: tot de la wizard, are și IP-ul
+        for d in dirs:
+            p = d / name
+            if p not in out:
+                out.append(p)
     return out
 
 
@@ -123,10 +124,34 @@ def wizard_devices(path: Optional[str] = None) -> Dict[str, Dict]:
             data = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        if isinstance(data, dict):           # snapshot.json: {"devices": [{id, key, ip, ver}]}
+            data = data.get("devices") or []
         for d in data if isinstance(data, list) else []:
-            if isinstance(d, dict) and d.get("id") and (d["id"] not in found or not found[d["id"]].get("key")):
-                found[d["id"]] = dict(d, _file=str(p))
+            if not isinstance(d, dict) or not d.get("id"):
+                continue
+            d = dict(d, _file=str(p))
+            if not d.get("version") and d.get("ver"):
+                d["version"] = d["ver"]
+            if d["id"] not in found or not key_ok(found[d["id"]].get("key")):
+                found[d["id"]] = d
     return found
+
+
+LOCAL_KEY_LEN = 16
+
+
+def key_ok(key) -> bool:
+    """Cheia locală a unui bec Tuya are 16 caractere (Access ID-ul are 20, Access Secret 32)."""
+    return isinstance(key, str) and len(key.strip()) == LOCAL_KEY_LEN
+
+
+def key_problem(key: str) -> str:
+    n = len(key or "")
+    if n == 32:
+        return "are 32 de caractere: e Access Secret-ul proiectului Tuya, nu cheia becului"
+    if n == 20:
+        return "are 20 de caractere: e Access ID-ul proiectului Tuya, nu cheia becului"
+    return f"are {n} caractere; cheia becului are 16"
 
 
 VERSIONS = (3.3, 3.1, 3.4, 3.5)
@@ -237,7 +262,16 @@ class TuyaBulb(Device):
                  devices_json: Optional[str] = None):
         tinytuya = _tinytuya()
         known = wizard_devices(devices_json).get(dev_id, {})
-        local_key = (local_key or known.get("key") or "").strip()
+        local_key = (local_key or "").strip()
+        self.key_note = ""
+        if local_key and not key_ok(local_key):
+            if key_ok(known.get("key")):   # cheia din config e greșită: luăm pe cea din devices.json
+                self.key_note = f"cheia din config {key_problem(local_key)}; folosesc cheia din {known.get('_file')}"
+                local_key = ""
+            else:
+                raise DeviceError(f"Tuya {dev_id}: cheia locală {key_problem(local_key)}. Ia câmpul \"key\" "
+                                  "din devices.json (după `python -m tinytuya wizard`) sau apasă „Încarcă devices.json…”.")
+        local_key = local_key or (known.get("key") or "").strip()
         host = (host or known.get("ip") or "Auto").strip()
         if not local_key:
             raise DeviceError(f"Tuya {dev_id}: lipsește cheia locală. La Dispozitive, sub rândul Tuya: "
@@ -263,7 +297,7 @@ class TuyaBulb(Device):
         import time
         self._verified_at = time.time()
         self.api_status = (f"găsit pe IP nou {host} (salvat), protocol {v}" if self.found_host
-                           else f"conectat pe {host}, protocol {v}")
+                           else f"conectat pe {host}, protocol {v}") + (f"; {self.key_note}" if self.key_note else "")
         self.bulb.turn_on(nowait=True)
 
     VERIFY_EVERY = 20.0   # secunde: becul chiar răspunde? (după o pană închide conexiunea în tăcere)
