@@ -247,15 +247,31 @@ class TuyaBulb(Device):
                               ("; nici căutarea în rețea nu l-a găsit (e alimentat? e în aceeași rețea?)"
                                if all(_unreachable(e) for e in errors) else ""))
         self.bulb, self.version, self.host = bulb, v, host
+        import time
+        self._verified_at = time.time()
         self.api_status = (f"găsit pe IP nou {host} (salvat), protocol {v}" if self.found_host
                            else f"conectat pe {host}, protocol {v}")
         self.bulb.turn_on(nowait=True)
 
+    VERIFY_EVERY = 20.0   # secunde: becul chiar răspunde? (după o pană închide conexiunea în tăcere)
+
     def send(self, colors: Sequence[RGB]) -> None:
+        import time
+
         r, g, b = average(colors)
         if max(r, g, b) == 0:
             r = g = b = 1  # (0,0,0) e invalid la Tuya; un minim aproape stins
-        self.bulb.set_colour(r, g, b, nowait=True)
+        # tinytuya nu aruncă la conexiune picată: întoarce {"Error": ...}. Atunci aruncăm noi,
+        # ca motorul să reconecteze becul (și să-l caute în rețea dacă și-a schimbat IP-ul).
+        self._check(self.bulb.set_colour(r, g, b, nowait=True))
+        now = time.time()
+        if now - self._verified_at > self.VERIFY_EVERY:
+            self._check(self.bulb.status())
+            self._verified_at = now
+
+    def _check(self, result) -> None:
+        if isinstance(result, dict) and ("Error" in result or "Err" in result):
+            raise DeviceError(f"becul nu mai răspunde ({result.get('Error') or result.get('Err')}); reconectez")
 
     def close(self) -> None:
         try:

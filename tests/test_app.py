@@ -232,6 +232,21 @@ class TuyaTest(unittest.TestCase):
         self.assertEqual(dev.found_host, "192.168.68.90")
         self.assertIn("IP nou", dev.api_status)
 
+    def test_send_raises_when_bulb_drops_connection(self):
+        from aicolors.devices import tuya
+        from aicolors.devices.base import DeviceError
+
+        dev = tuya.TuyaBulb("bf01", "192.168.68.71", "cheie", version=3.3, devices_json="/nu/exista.json")
+        dev.send([(255, 0, 0)])                      # merge
+        dev.bulb.set_colour = lambda *a, **k: {"Error": "Network Error: Device Unreachable", "Err": "905"}
+        with self.assertRaises(DeviceError):
+            dev.send([(0, 0, 255)])
+        dev.bulb.set_colour = lambda *a, **k: None
+        dev.bulb.status = lambda: {"Error": "Network Error: Device Unreachable", "Err": "905"}
+        dev._verified_at = 0                          # e timpul verificării periodice
+        with self.assertRaises(DeviceError):
+            dev.send([(0, 255, 0)])
+
     def test_missing_key(self):
         from aicolors.devices import tuya
         from aicolors.devices.base import DeviceError
