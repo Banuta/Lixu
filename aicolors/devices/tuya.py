@@ -132,12 +132,25 @@ def wizard_devices(path: Optional[str] = None) -> Dict[str, Dict]:
 VERSIONS = (3.3, 3.1, 3.4, 3.5)
 
 
+def fast_fail(bulb, retries: int = 1, delay: float = 0.3):
+    """tinytuya reîncearcă implicit de 5 ori cu 5 s pauză (~25 s blocat la un bec care nu răspunde)."""
+    for name, value in (("set_socketRetryLimit", retries), ("set_socketRetryDelay", delay)):
+        fn = getattr(bulb, name, None)
+        if fn:
+            try:
+                fn(value)
+            except Exception:
+                pass
+    return bulb
+
+
 def _try_versions(tinytuya, dev_id: str, host: str, key: str, versions, timeout: float = 2):
     """(bec, versiune, erori) – primul protocol la care becul răspunde, sau (None, None, erori)."""
     errors = []
     for v in versions:
         bulb = tinytuya.BulbDevice(dev_id, host, key, version=v, persist=True, connection_timeout=timeout)
         bulb.set_socketTimeout(1)
+        fast_fail(bulb)
         status = bulb.status()  # detectează și tipul becului (formatul culorii)
         if isinstance(status, dict) and "Error" not in status:
             return bulb, v, errors

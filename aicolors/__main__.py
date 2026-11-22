@@ -318,6 +318,14 @@ def cmd_diag(args) -> int:
     return 0
 
 
+def cmd_tuyadiag(args) -> int:
+    from .tuyadiag import run
+
+    path = run(str(Path(args.out).resolve()))
+    print(f"\nGata. Trimite fișierul: {path}")
+    return 0
+
+
 def cmd_probe(args) -> int:
     if sys.platform != "win32":
         print("probe funcționează doar pe Windows.")
@@ -344,7 +352,7 @@ def cmd_probe(args) -> int:
     return 0
 
 
-COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "battery", "mouse", "probe", "diag", "kbtest", "openrgb")
+COMMANDS = ("app", "run", "scan", "identify", "install-cfg", "test", "demo", "battery", "mouse", "probe", "diag", "kbtest", "openrgb", "tuyadiag")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -422,6 +430,10 @@ def build_parser() -> argparse.ArgumentParser:
     dg = sub.add_parser("diag", help="diagnostic complet în diagnostic.txt")
     dg.add_argument("--out", default="diagnostic.txt")
     dg.set_defaults(func=cmd_diag)
+
+    td = sub.add_parser("tuyadiag", help="diagnostic pentru becurile Tuya în tuya-diagnostic.txt")
+    td.add_argument("--out", default="tuya-diagnostic.txt")
+    td.set_defaults(func=cmd_tuyadiag)
 
     pr = sub.add_parser("probe", help="listează interfețele HID ale tastaturii")
     pr.add_argument("--all", action="store_true", help="toate dispozitivele HID, nu doar tastatura")
